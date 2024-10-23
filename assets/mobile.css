@@ -1,0 +1,16 @@
+body {
+    font-family: Arial, sans-serif;
+    background-color: #F8EDED;
+    margin: 0;
+    padding: 10px;
+}
+
+.container {
+    text-align: center;
+    background-color: #F8EDED;
+}
+
+.responsive-image {
+    max-width: 100%;
+    height: auto;
+}
