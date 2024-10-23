@@ -1,3 +1,6 @@
+<?php
+include('../../config.php');
+?>
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
@@ -15,18 +18,38 @@
 
     <div class="container">
         <h1>CritMeet</h1><br>
-        <input type="text" placeholder="Nome" /><br>
-        <input type="text" placeholder="Gênero" /><br>
-        <input type="text" placeholder="Pronomes" /><br>
-        <input type="text" placeholder="Email" /><br>
-        <input type="password" placeholder="Senha" /><br>
-        <input type="password" placeholder="Confirmar Senha" /><br>
-        <button type="button">Registrar</button><br>
-        
+        <form method="POST" action="">
+            <input type="text" name="name" placeholder="Nome" required /><br>
+            <input type="text" name="gender" placeholder="Gênero" required /><br>
+            <input type="text" name="pronouns" placeholder="Pronomes" required /><br>
+            <input type="email" name="email" placeholder="Email" required /><br>
+            <input type="password" name="password" placeholder="Senha" required /><br>
+            <input type="password" name="confirm_password" placeholder="Confirmar Senha" required /><br>
+            <button type="submit">Registrar</button><br>
+        </form>
+
         <?php
         include '../../components/NavBack/index.php';
         ?>
     </div>
     <?php include 'footer.php'; ?>
+    <?php
+    if ($_SERVER["REQUEST_METHOD"] == "POST") {
+        $name = $_POST["name"];
+        $gender = $_POST["gender"];
+        $pronouns = $_POST["pronouns"];
+        $email = $_POST["email"];
+        $password = $_POST["password"];
+
+        $sql = "INSERT INTO users (name, gender, pronouns, email, password) 
+                VALUES ('$name', '$gender', '$pronouns', '$email', '$password')";
+		if ($mysqli->query($sql) === TRUE) {
+			echo "Cadastro realizado com sucesso!";
+		} else {
+			echo "Erro ao cadastrar: " . $mysqli->error;
+		}
+	}
+	?>
 </body>
 </html>
+
