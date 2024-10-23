@@ -1,3 +1,39 @@
+<?php
+// Inclua o arquivo de configuração do banco de dados
+include('../../config.php');
+
+session_start();
+
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    // Coletar dados do formulário
+    $login = $_POST['login'];
+    $senha = $_POST['senha'];
+
+    // Prepare a consulta SQL
+    $stmt = $mysqli->prepare("SELECT * FROM users WHERE email = ? LIMIT 1");
+    $stmt->bind_param("s", $login);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    // Verificar se o usuário existe
+    if ($result->num_rows > 0) {
+        $user = $result->fetch_assoc();
+
+        // Verificar a senha
+        if ($user['password'] === $senha) { // Aqui você deve usar um hash para senhas!
+            // Login bem-sucedido
+            $_SESSION['user_id'] = $user['id'];
+            header("Location: dashboard.php"); // Redirecione para a página desejada
+            exit();
+        } else {
+            $error = "Senha incorreta.";
+        }
+    } else {
+        $error = "Usuário não encontrado.";
+    }
+}
+?>
+
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
@@ -15,13 +51,17 @@
 
     <div class="container">
         <h1>CritMeet</h1><br>
-        <input type="text" placeholder="Login" /><br>
-        <input type="password" placeholder="Senha" /><br>
+        <form method="POST" action="">
+            <input type="text" name="login" placeholder="Login" required /><br>
+            <input type="password" name="senha" placeholder="Senha" required /><br>
+            <button type="submit">Entrar</button><br>
+        </form>
         <a href="../register/index.php">
             <button type="button">Cadastre-se</button><br>
         </a>
-        <button type="button">Entrar</button><br>
         <button type="button">Google</button>
+        
+        <?php if (isset($error)) { echo "<p style='color:red;'>$error</p>"; } ?>
     </div>
 
     <?php include 'footer.php'; ?>
