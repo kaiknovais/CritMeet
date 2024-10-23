@@ -11,6 +11,7 @@
         <input type="text" placeholder="Nome" /><br>
         <input type="text" placeholder="Gênero" /><br>
         <input type="text" placeholder="Pronomes" /><br>
+        <input type="text" placeholder="Email" /><br>
         <input type="password" placeholder="Senha" /><br>
         <input type="password" placeholder="Confirmar Senha" /><br>
         <button type="button">Registrar</button><br>
