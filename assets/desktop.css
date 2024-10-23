@@ -1,0 +1,63 @@
+body {
+    font-family: "Agdasima", sans-serif;
+    background-color: #F8EDED;
+    margin: 0;
+    padding: 20px;
+}
+
+.agdasima-regular {
+    font-family: "Agdasima", sans-serif;
+    font-weight: 400;
+    font-style: normal;
+  }
+  
+.agdasima-bold {
+    font-family: "Agdasima", sans-serif;
+    font-weight: 700;
+    font-style: normal;
+  }
+
+.container {
+    max-width: 800px;
+    margin: auto;
+    text-align: center;
+    background-color: #F8EDED;
+}
+
+.responsive-image {
+    max-width: 100%;
+    height: auto;
+}
+
+h1 {
+    color: #B43F3F;
+    font-size: 100px;
+}
+h2 {
+    color: #173B45;
+    font-size: 35px;
+}
+
+p {
+    color: #173B45;
+    text-align: center;
+}
+button {
+    background-color: #FF9C55;
+    color: #173B45;
+    border: none;
+    border-radius: 4px;
+    font-size: 30px;
+    padding: 5px;
+    margin: 4px 4px;
+    font-family: "Agdasima", sans-serif;
+}
+button:hover {
+    background-color: #FF8225;
+}
+input {
+    background-color: antiquewhite;
+    border-radius: 4px;
+    font-size: 30px;
+    font-family: "Agdasima", sans-serif;
+}
