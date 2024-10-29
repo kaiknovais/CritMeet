@@ -6,7 +6,7 @@ session_start();
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     // Coletar dados do formulário
-    $login = $_POST['login'];
+    $login = $_POST['email'];
     $senha = $_POST['senha'];
 
     // Prepare a consulta SQL
@@ -20,10 +20,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $user = $result->fetch_assoc();
 
         // Verificar a senha
-        if ($user['password'] === $senha) { // Aqui você deve usar um hash para senhas!
+        if ($user['password'] === $senha) { // Usar um hash para senhas!
             // Login bem-sucedido
             $_SESSION['user_id'] = $user['id'];
-            header("Location: dashboard.php"); // Redirecione para a página desejada
+            header("Location: ../homepage/index.php"); // Redireciona para a página desejada
             exit();
         } else {
             $error = "Senha incorreta.";
@@ -52,7 +52,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <div class="container">
         <h1>CritMeet</h1><br>
         <form method="POST" action="">
-            <input type="text" name="login" placeholder="Login" required /><br>
+            <input type="text" name="email" placeholder="Email" required /><br>
             <input type="password" name="senha" placeholder="Senha" required /><br>
             <button type="submit">Entrar</button><br>
         </form>
