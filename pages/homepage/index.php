@@ -15,7 +15,7 @@
 
     <div class="container">
         <h1>CritMeet</h1>
-        <a href="../profile/index.php">
+        <a href="../settings/index.php">
             <button type="button">Configurações</button>
         </a><br>
         <button type="button">Notificação de Acontecimentos</button><br>
