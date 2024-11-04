@@ -12,6 +12,7 @@
 </head>
 <body>
     <?php include 'header.php'; ?>
+    <?php include '../../components/Profile/index.php'; ?>
 
     <div class="container">
         <h1>CritMeet</h1>

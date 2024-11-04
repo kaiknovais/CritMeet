@@ -27,10 +27,7 @@ include('../../config.php');
             <input type="password" name="confirm_password" placeholder="Confirmar Senha" required /><br>
             <button type="submit">Registrar</button><br>
         </form>
-
-        <?php
-        include '../../components/NavBack/index.php';
-        ?>
+        <button onclick="window.location.href='../login/index.php'">Voltar</button><br>
     </div>
     <?php include 'footer.php'; ?>
     <?php
@@ -43,13 +40,12 @@ include('../../config.php');
 
         $sql = "INSERT INTO users (name, gender, pronouns, email, password) 
                 VALUES ('$name', '$gender', '$pronouns', '$email', '$password')";
-		if ($mysqli->query($sql) === TRUE) {
-			echo "Cadastro realizado com sucesso!";
-		} else {
-			echo "Erro ao cadastrar: " . $mysqli->error;
-		}
-	}
-	?>
+        if ($mysqli->query($sql) === TRUE) {
+            echo "Cadastro realizado com sucesso!";
+        } else {
+            echo "Erro ao cadastrar: " . $mysqli->error;
+        }
+    }
+    ?>
 </body>
 </html>
-
