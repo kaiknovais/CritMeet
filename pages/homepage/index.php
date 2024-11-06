@@ -12,18 +12,31 @@
 </head>
 <body>
     <?php include 'header.php'; ?>
-    <?php include '../../components/Profile/index.php'; ?>
-
-    <div class="container">
+    
+    <header class="header">
         <h1>CritMeet</h1>
-        <a href="../settings/index.php">
-            <button type="button">Configurações</button>
-        </a><br>
-        <button type="button">Notificação de Acontecimentos</button><br>
-        <button type="button">Notificação de Mensagens</button><br>
-        <button type="button">Sessões Agendadas</button>
+        <?php include '../../components/Profile/index.php'; ?>
+    </header>
+    
+    <div class="container">
+        <nav class="side-menu">
+            <h2>Menu</h2>
+            <ul>
+                <li><a href="#">Home</a></li>
+                <li><a href="#">About</a></li>
+                <li><a href="../settings/index.php">Configurações</a></li>
+                <li><a href="#">Contact</a></li>
+            </ul>
+        </nav>
+        <div class="content">
+            <div class="column"><button type="button">Notificação de Acontecimentos</button></div>
+            <div class="column"><button type="button">Notificação de Mensagens</button></div>
+            <div class="column"><button type="button">Sessões Agendadas</button></div>
+        </div>
     </div>
 
     <?php include 'footer.php'; ?>
+
+    
 </body>
 </html>

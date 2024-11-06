@@ -14,37 +14,9 @@ $user = $result->fetch_assoc();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" type="text/css" href="../../assets/mobile.css" media="screen and (max-width: 600px)">
+    <link rel="stylesheet" type="text/css" href="../../assets/desktop.css" media="screen and (min-width: 601px)">
     <title>Perfil do Usuário</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif; /* Fonte padrão */
-            background-color: #f4f4f4; /* Cor de fundo suave */
-            margin: 0;
-            padding: 20px;
-        }
-        .profile {
-            position: fixed; /* Muda para fixed para permanecer no canto ao rolar a página */
-            top: 20px; /* Distância do topo */
-            right: 20px; /* Distância da direita */
-            display: flex;
-            align-items: center;
-            background-color: white; /* Fundo branco para o perfil */
-            border-radius: 8px; /* Bordas arredondadas */
-            padding: 10px; /* Espaçamento interno */
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1); /* Sombra */
-            width: 150px; /* Largura fixa */
-        }
-        .profile img {
-            max-width: 60px; /* Imagem aumentada para 60px */
-            max-height: 60px; /* Imagem aumentada para 60px */
-            border-radius: 50%; 
-            margin-right: 10px; 
-        }
-        h2 {
-            margin: 0; /* Remove margem padrão */
-            font-size: 20px; /* Tamanho da fonte do nome ajustado */
-        }
-    </style>
 </head>
 <body>
     <div class="profile">
