@@ -19,17 +19,21 @@ include('../../config.php');
     <div class="container">
         <h1>CritMeet</h1><br>
         <form method="POST" action="">
-            <input type="text" name="name" placeholder="Nome" required /><br>
-            <input type="text" name="gender" placeholder="Gênero" required /><br>
-            <input type="text" name="pronouns" placeholder="Pronomes" required /><br>
-            <input type="email" name="email" placeholder="Email" required /><br>
+            <input type="text" name="name" placeholder="Nome" value="<?php echo isset($_POST['name']) ? htmlspecialchars($_POST['name']) : ''; ?>" required /><br>
+            <input type="text" name="gender" placeholder="Gênero" value="<?php echo isset($_POST['gender']) ? htmlspecialchars($_POST['gender']) : ''; ?>" required /><br>
+            <input type="text" name="pronouns" placeholder="Pronomes" value="<?php echo isset($_POST['pronouns']) ? htmlspecialchars($_POST['pronouns']) : ''; ?>" required /><br>
+            <input type="email" name="email" placeholder="Email" value="<?php echo isset($_POST['email']) ? htmlspecialchars($_POST['email']) : ''; ?>" required /><br>
             <input type="password" name="password" placeholder="Senha" required /><br>
             <input type="password" name="confirm_password" placeholder="Confirmar Senha" required /><br>
             <button type="submit">Registrar</button><br>
         </form>
-        <button onclick="window.location.href='../login/index.php'">Voltar</button><br>
+
+        <?php
+        include '../../components/NavBack/index.php';
+        ?>
     </div>
     <?php include 'footer.php'; ?>
+    
     <?php
     if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $name = $_POST["name"];
@@ -38,14 +42,29 @@ include('../../config.php');
         $email = $_POST["email"];
         $password = $_POST["password"];
 
-        $sql = "INSERT INTO users (name, gender, pronouns, email, password) 
-                VALUES ('$name', '$gender', '$pronouns', '$email', '$password')";
-        if ($mysqli->query($sql) === TRUE) {
-            echo "Cadastro realizado com sucesso!";
-        } else {
-            echo "Erro ao cadastrar: " . $mysqli->error;
+        if ($password !== $_POST["confirm_password"]) {
+            echo "<script>alert('As senhas não coincidem.');</script>";
+            exit();
+        }
+
+        $stmt = $mysqli->prepare("INSERT INTO users (name, gender, pronouns, email, password) VALUES (?, ?, ?, ?, ?)");
+        $stmt->bind_param("sssss", $name, $gender, $pronouns, $email, $password);
+
+        try {
+            if ($stmt->execute()) {
+                echo "Cadastro realizado com sucesso!";
+            }
+        } catch (mysqli_sql_exception $e) {
+            if ($e->getCode() == 1062) { 
+                echo "Erro: O e-mail já está cadastrado.";
+            } else {
+                echo "Erro ao cadastrar: " . $e->getMessage();
+            }
+        } finally {
+            $stmt->close(); // Fecha a declaração
         }
     }
     ?>
 </body>
 </html>
+
