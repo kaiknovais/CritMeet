@@ -14,7 +14,7 @@
     <?php include 'header.php'; ?>
     
     <div class="container">
-        <h1>CritMeet</h1>
+        <h1>CritMeet-teste</h1>
         <h2>Saudações!</h2>
         <h2>Vamos começar a sua jornada!</h2>
         <a href="../login/index.php">
