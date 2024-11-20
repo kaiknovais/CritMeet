@@ -2,6 +2,7 @@
     margin: 0;
     padding: 0;
     box-sizing: border-box;
+    font-family: "Agdasima", sans-serif;
 }
 
 body, html {
@@ -46,35 +47,7 @@ body, html {
     width: 100%;
     height: 100%;
 }
-.side-menu {
-    width: 20%;
-    background-color: #333;
-    color: white;
-    padding: 20px;
-    height: 100%;
-}
-.side-menu h2 {
-    font-size: 1.5em;
-    margin-bottom: 15px;
-    color: #FF8225;
-}
 
-.side-menu ul {
-    list-style: none;
-}
-
-.side-menu ul li {
-    margin-bottom: 10px;
-}
-
-.side-menu ul li a {
-    color: white;
-    text-decoration: none;
-}
-
-.side-menu ul li a:hover {
-    text-decoration: underline;
-}
 .content {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -85,7 +58,7 @@ body, html {
     height: 100%;
 }
 
-.column {
+.col {
     background-color: #ddd;
     padding: 15px;
     text-align: center;
