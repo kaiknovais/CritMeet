@@ -28,10 +28,11 @@
 </head>
 
 <body>
+    <?php include 'header.php'; ?>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
     
     <div>
-        <nav class="navbar navbar-expand-lg bg-body-tertiary">
+        <nav class="navbar navbar-expand-lg bg-body-tertiary" data-bs-theme="dark">
     <div class="container-fluid">
         <a class="navbar-brand" href="../homepage/index.php">
         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-dice-5-fill" viewBox="0 0 16 16">
@@ -56,7 +57,7 @@
           </a>
           <ul class="dropdown-menu">
             <li><a class="dropdown-item" href="../settings/index.php">Configurações</a></li>
-            <li><a class="dropdown-item" href="#">Another action</a></li>
+            <li><a class="dropdown-item" href="#">Conexões</a></li>
             <li><hr class="dropdown-divider"></li>
             <li><a class="dropdown-item" href="../../components/Logout/index.php">Logout</a></li>
           </ul>
@@ -85,9 +86,7 @@
       </div>
       </div>  
     <br></div>
-    
-    <div class="col"><button type="button">Conexões</button><br></div>
-    
+        
     <div class="col"><button type="button">Configurações de Segurança</button><br></div>
 
   </div>
@@ -97,7 +96,7 @@
   </div>
 </div>
 
-
+<?php include 'footer.php'; ?>
 
 </body>
 

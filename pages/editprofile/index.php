@@ -1,3 +1,42 @@
+<?php
+include('../../config.php');
+session_start();
+
+$user_id = $_SESSION['user_id'];
+
+// Fetch user data
+$sql = "SELECT * FROM users WHERE id='$user_id'";
+$result = $mysqli->query($sql);
+$user = $result->fetch_assoc();
+
+// Handle form submission
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $name = $_POST['name'];
+    $gender = $_POST['gender'];
+    $pronouns = $_POST['pronouns'];
+    $preferences = $_POST['preferences'];
+
+    // Check if a new image is uploaded
+    if (!empty($_FILES['image']['tmp_name'])) {
+        $image = file_get_contents($_FILES['image']['tmp_name']);
+        $image = base64_encode($image); // Convert to base64 for storage
+        $sql = "UPDATE users SET name = ?, gender = ?, pronouns = ?, preferences = ?, image = ? WHERE id = ?";
+        $stmt = $mysqli->prepare($sql);
+        $stmt->bind_param('sssssi', $name, $gender, $pronouns, $preferences, $image, $user_id);
+    } else {
+        $sql = "UPDATE users SET name = ?, gender = ?, pronouns = ?, preferences = ? WHERE id = ?";
+        $stmt = $mysqli->prepare($sql);
+        $stmt->bind_param('ssssi', $name, $gender, $pronouns, $preferences, $user_id);
+    }
+
+    if ($stmt->execute()) {
+        echo "<script>alert('User information updated successfully!'); window.location.href='index.php';</script>";
+    } else {
+        echo "<script>alert('Error updating user information.');</script>";
+    }
+}
+?>
+
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
@@ -13,10 +52,10 @@
     <title>Profile Edit</title>
 </head>
 <body>
+    <?php include 'header.php'; ?>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
-
-    <div>
-    <nav class="navbar navbar-expand-lg bg-body-tertiary">
+    
+    <nav class="navbar navbar-expand-lg bg-body-tertiary" data-bs-theme="dark">
     <div class="container-fluid">
         <a class="navbar-brand" href="../homepage/index.php">
         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-dice-5-fill" viewBox="0 0 16 16">
@@ -41,7 +80,7 @@
           </a>
           <ul class="dropdown-menu">
             <li><a class="dropdown-item" href="../settings/index.php">Configurações</a></li>
-            <li><a class="dropdown-item" href="#">Another action</a></li>
+            <li><a class="dropdown-item" href="#">Conexões</a></li>
             <li><hr class="dropdown-divider"></li>
             <li><a class="dropdown-item" href="../../components/Logout/index.php">Logout</a></li>
           </ul>
@@ -56,21 +95,23 @@
   </div>
 </nav>
 
-        <!-- Exibir a imagem se existir -->
+    <div class="container text-center">
+        <!-- Display user profile image -->
         <?php if (!empty($user['image'])): ?>
-            <h2>Imagem de Perfil</h2>
+            <h3>Imagem de Perfil</h3>
             <img src="data:image/jpeg;base64,<?php echo $user['image']; ?>" alt="Imagem de Perfil" style="max-width: 200px; max-height: 200px;"/><br>
         <?php endif; ?>
 
         <form method="POST" action="" enctype="multipart/form-data">
-            <input type="file" name="image" accept="image/*" required /><br>
+            <input type="file" name="image" accept="image/*" /><br>
             <input type="text" name="name" placeholder="Nome" value="<?php echo htmlspecialchars($user['name']); ?>" required /><br>
             <input type="text" name="gender" placeholder="Gênero" value="<?php echo htmlspecialchars($user['gender']); ?>" required /><br>
             <input type="text" name="pronouns" placeholder="Pronomes" value="<?php echo htmlspecialchars($user['pronouns']); ?>" required /><br>
-            <input type="text" name="preferences" placeholder="Preferências de Jogo" value="<?php echo htmlspecialchars($user['preferences']); ?>" required /><br>
+            <input type="text" name="preferences" placeholder="Preferências de Jogo" value="<?php echo htmlspecialchars($user['preferences']); ?>" required ><br>
             <button type="submit">Confirmar Alterações</button><br>
-            <button onclick="window.location.href='../home/index.php'">Voltar</button><br>
         </form>
     </div>
+
+    <?php include 'footer.php'; ?>
 </body>
 </html>
