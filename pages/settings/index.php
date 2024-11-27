@@ -92,7 +92,11 @@
   </div>
   <div class="row">
     <div class="col-8"><button type="button">Suporte e Ajuda</button><br></div>
-    <div class="col-4"><a href="../../components/Delete/index.php"> <button type="button">Deletar Conta</button></a><br></div>
+    <div class="col-4">
+    <form method="post" action="../../components/Delete/index.php">
+      <button type="submit" name="delete_user">Excluir Conta</button>
+    </form>
+    <br></div>
   </div>
 </div>
 
