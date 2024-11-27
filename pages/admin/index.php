@@ -68,11 +68,11 @@ $result = $mysqli->query($sql);
                         <td><?= $row['id'] ?></td>
                         <td><?= htmlspecialchars($row['name']) ?></td>
                         <td><?= htmlspecialchars($row['email']) ?></td>
-                        <td><?= $row['admin'] ? 'Não' : 'Sim' ?></td>
+                        <td><?= $row['admin'] ? 'Sim' : 'Não' ?></td>
                         <td class="actions">
                         <a href="../../components/ProfileAdmin/index.php?id=<?= $row['id'] ?>"><button class="view">Ver Perfil</button></a>
                             <a href="editar.php?id=<?= $row['id'] ?>"><button class="edit">Editar</button></a>
-                            <a href="excluir.php?id=<?= $row['id'] ?>" onclick="return confirm('Tem certeza que deseja excluir este usuário?')">
+                            <a href="../../components/DeleteAdmin/index.php?id=<?= $row['id'] ?>" onclick="return confirm('Tem certeza que deseja excluir este usuário?')">
                                 <button class="delete">Excluir</button>
                             </a>
                         </td>

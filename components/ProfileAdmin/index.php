@@ -2,7 +2,6 @@
 include('../../config.php');
 session_start();
 
-// Verifica se o ID do usuário foi passado na URL
 if (!isset($_GET['id'])) {
     echo "ID do usuário não fornecido.";
     exit;
@@ -10,7 +9,6 @@ if (!isset($_GET['id'])) {
 
 $user_id = $_GET['id'];
 
-// Busca os dados do usuário selecionado
 $sql = "SELECT name, image, gender, pronouns, preferences FROM users WHERE id='$user_id'";
 $result = $mysqli->query($sql);
 
