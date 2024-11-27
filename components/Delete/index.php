@@ -15,7 +15,7 @@ if (isset($_POST['delete_user'])) {
 
     if ($stmt->execute()) {
         session_destroy();
-        header("Location: ../../login/index.php?message=Conta excluída com sucesso.");
+        header("Location: ../../login/index.php");
         exit();
     } else {
         echo "Erro ao excluir a conta: " . $stmt->error;
