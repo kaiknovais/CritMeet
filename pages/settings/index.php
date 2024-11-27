@@ -31,7 +31,6 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
     
     <div>
-<<<<<<< Updated upstream
         <nav class="navbar navbar-expand-lg bg-body-tertiary">
     <div class="container-fluid">
         <a class="navbar-brand" href="../homepage/index.php">
@@ -68,31 +67,11 @@
         <input class="form-control me-2" type="search" placeholder="Search" aria-label="Search">
         <button class="btn btn-outline-success" type="submit">Search</button>
       </form>
-=======
-        <h1>CritMeet</h1><br>
-
-        <button onclick="window.location.href='../login/index.php'">Voltar</button><br>
-
-        <a href="../editprofile/index.php">
-            <button type="button">Editar Perfil</button>
-        </a><br>
-
-        <button type="button">Notificações</button><br>
-        <button type="button">Conexões</button><br>
-        <button type="button">Configurações de Segurança</button><br>
-
-        <a href="../../components/Logout/index.php">
-            <button type="button">Logout</button>
-        </a><br>
-
-        <button type="button">Suporte e Ajuda</button><br>
-        <button type="button" onclick="confirmDelete()">Deletar Conta</button><br>
->>>>>>> Stashed changes
     </div>
   </div>
 </nav>
 
-<div class="container-md">
+<div class="container">
   <div class="row">
     <div class="col"><a href="../editprofile/index.php"> <button type="button">Editar Perfil</button></a><br></div>
     
