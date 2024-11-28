@@ -90,6 +90,12 @@ button {
 button:hover {
     background-color: #FF8225;
 }
+.button2 {
+    background-color: #ff9c55;
+    color: #173B45;
+    font-family: "Agdasima", sans-serif;
+    font-size: 20px;
+}
 input {
     background-color: antiquewhite;
     border-radius: 4px;
@@ -126,6 +132,7 @@ input {
     text-align: center;
     align-items: center;
     align-self: auto;
+    color: #173B45;
 }
 .profile-container img {
     max-width: 150px;
@@ -135,10 +142,62 @@ input {
 }
 .profile-table {
     margin: 0 auto;
-    text-align: left;
+    text-align: center;
     width: 100%;
 }
 .profile-table th {
-    text-align: right;
-    padding-right: 10px;
+    text-align: left;
+    font-size: 20px;
+    color: #173B45;
+}
+.profile-table td {
+    font-size: 20px;
+    color: #173B45;
+    text-align: center;
+}
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+table, th, td {
+    border: 1px solid #ddd;
+}
+th, td {
+    padding: 10px;
+    text-align: left;
+    font-size: 25px;
+}
+th {
+    background-color: #FF9C55;
+}
+td {
+    background-color: antiquewhite;
+}
+button.view {
+    background-color: #173B45;
+    color: antiquewhite;
+    border: none;
+    font-size: 20px;
+}
+button.edit {
+    background-color: #FF8225;
+    color: #173B45;
+    border: none;
+    font-size: 20px;
+}
+button.delete {
+    background-color: #B43F3F;
+    color: antiquewhite;
+    border: none;
+    font-size: 20px;
+}
+#calendar {
+    max-width: 900px;
+    margin: 0 auto;
+    height: auto;
+}
+h5 {
+    text-align: center;
+    font-size: 30px;
+    color: #B43F3F;
 }
