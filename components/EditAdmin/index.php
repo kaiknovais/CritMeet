@@ -96,7 +96,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     <div class="container text-center">
         <h2>Editar Informações do Usuário</h2>
 
-        <!-- Exibe a imagem de perfil do usuário e permite novo upload -->
         <form method="POST" action="" enctype="multipart/form-data">
             <?php if (!empty($user['image'])): ?>
                 <h3>Imagem de Perfil Atual</h3>
@@ -108,7 +107,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 <input type="file" id="image" name="image" class="form-control" />
             </div>
 
-            <!-- Campos editáveis -->
+
             <div class="mb-3">
                 <label for="name" class="form-label">Nome</label>
                 <input type="text" id="name" name="name" class="form-control" value="<?php echo htmlspecialchars($user['name']); ?>" />
@@ -126,14 +125,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 <input type="text" id="preferences" name="preferences" class="form-control" value="<?php echo htmlspecialchars($user['preferences']); ?>" />
             </div>
 
-            <!-- Campo para marcar o usuário como administrador -->
+            
             <div class="mb-3">
                 <label for="admin" class="form-label">Administrador</label>
                 <input type="checkbox" id="admin" name="admin" <?php echo $user['admin'] == 1 ? 'checked' : ''; ?> />
             </div>
 
+            
             <button type="submit" class="btn btn-success">Salvar Alterações</button>
-            <a href="../../pages/admin/index.php" class="btn btn-primary">Voltar para a Lista de Usuários</a>
+            <?php include '../NavBack/index.php'; ?>
         </form>
     </div>
 
