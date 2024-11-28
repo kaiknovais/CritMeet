@@ -4,7 +4,7 @@ session_start();
 
 // Verifica se o usuário está logado e se o ID do usuário foi salvo na sessão
 if (!isset($_SESSION['user_id'])) {
-    echo "<script>alert('Usuário não autenticado.'); window.location.href='../../pages/admin/login.php';</script>";
+    echo "<script>alert('Usuário não autenticado.'); window.location.href='../../pages/login/index.php';</script>";
     exit();
 }
 
