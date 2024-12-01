@@ -84,13 +84,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <li><a class="dropdown-item" href="#">Conexões</a></li>
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="../../components/Logout/index.php">Logout</a></li>
-                            <!-- Apenas para administradores -->
                             <?php if ($is_admin): ?>
                                 <li><a class="dropdown-item text-danger" href="../admin/index.php">Lista de Usuários</a></li>
                             <?php endif; ?>
                         </ul>
                     </li>
                 </ul>
+                <form class="d-flex">
+                    <input class="form-control me-2" type="search" name="search" placeholder="Buscar amigos..." aria-label="Search">
+                    <button class="btn btn-outline-success" type="submit">Buscar</button>
+                </form>
             </div>
         </div>
     </nav>
