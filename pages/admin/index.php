@@ -30,7 +30,7 @@ $result = $mysqli->query($sql);
         <thead>
             <tr>
                 <th>ID</th>
-                <th>Nome</th>
+                <th>Usuário</th>
                 <th>Email</th>
                 <th>Admin</th>
                 <th>Ações</th>
@@ -41,7 +41,7 @@ $result = $mysqli->query($sql);
                 <?php while ($row = $result->fetch_assoc()): ?>
                     <tr>
                         <td><?= $row['id'] ?></td>
-                        <td><?= htmlspecialchars($row['name']) ?></td>
+                        <td><?= htmlspecialchars($row['username']) ?></td>
                         <td><?= htmlspecialchars($row['email']) ?></td>
                         <td><?= $row['admin'] ? 'Sim' : 'Não' ?></td>
                         <td class="actions">

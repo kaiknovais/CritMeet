@@ -1,3 +1,23 @@
+<?php
+include '../../config.php';
+session_start();
+
+$user_id = $_SESSION['user_id'] ?? null;
+$is_admin = false;
+
+if ($user_id) {
+    $query = "SELECT admin FROM users WHERE id = ?";
+    $stmt = $mysqli->prepare($query);
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    if ($result && $row = $result->fetch_assoc()) {
+        $is_admin = $row['admin'] == 1;
+    }
+    $stmt->close();
+}
+?>
+
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
@@ -32,39 +52,30 @@
 
     <nav class="navbar navbar-expand-lg bg-body-tertiary" data-bs-theme="dark">
         <div class="container-fluid">
-            <a class="navbar-brand" href="../homepage/index.php">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-dice-5-fill" viewBox="0 0 16 16">
-                    <path d="M3 0a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V3a3 3 0 0 0-3-3zm2.5 4a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0m8 0a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0M12 13.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3M5.5 12a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0M8 9.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3"/>
-                </svg>
-                CritMeet
-            </a>
+            <a class="navbar-brand" href="../homepage/index.php">CritMeet</a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarSupportedContent">
                 <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                    <li class="nav-item">
-                        <a class="nav-link active" aria-current="page" href="../homepage/index.php">Home</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="../../components/Profile/index.php">Meu Perfil</a>
-                    </li>
+                    <li class="nav-item"><a class="nav-link active" href="../homepage/index.php">Home</a></li>
+                    <li class="nav-item"><a class="nav-link" href="../Profile/index.php">Meu Perfil</a></li>
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                            mais...
+                            Mais...
                         </a>
                         <ul class="dropdown-menu">
                             <li><a class="dropdown-item" href="../settings/index.php">Configurações</a></li>
                             <li><a class="dropdown-item" href="#">Conexões</a></li>
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="../../components/Logout/index.php">Logout</a></li>
+                            <!-- Apenas para administradores -->
+                            <?php if ($is_admin): ?>
+                                <li><a class="dropdown-item text-danger" href="../admin/index.php">Lista de Usuários</a></li>
+                            <?php endif; ?>
                         </ul>
                     </li>
                 </ul>
-                <form class="d-flex" role="search">
-                    <input class="form-control me-2" type="search" placeholder="Bucar amigos" aria-label="Search">
-                    <button class="button2" type="submit">Buscar</button>
-                </form>
             </div>
         </div>
     </nav>
