@@ -5,6 +5,7 @@ session_start();
 $user_id = $_SESSION['user_id'] ?? null;
 $is_admin = false;
 
+// Verifica no banco de dados se o usuário é admin
 if ($user_id) {
     $query = "SELECT admin FROM users WHERE id = ?";
     $stmt = $mysqli->prepare($query);
@@ -12,11 +13,12 @@ if ($user_id) {
     $stmt->execute();
     $result = $stmt->get_result();
     if ($result && $row = $result->fetch_assoc()) {
-        $is_admin = $row['admin'] == 1;
+        $is_admin = $row['admin'] == 1; // Define como true se o usuário for admin
     }
     $stmt->close();
 }
 ?>
+
 
 <!DOCTYPE html>
 <html lang="pt-br">
@@ -35,7 +37,6 @@ if ($user_id) {
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
 
     <script>
-
       document.addEventListener('DOMContentLoaded', function() {
         var calendarEl = document.getElementById('calendar');
         var calendar = new FullCalendar.Calendar(calendarEl, {
@@ -43,7 +44,6 @@ if ($user_id) {
         });
         calendar.render();
       });
-
     </script>
 </head>
 <body>
@@ -69,13 +69,16 @@ if ($user_id) {
                             <li><a class="dropdown-item" href="#">Conexões</a></li>
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="../../components/Logout/index.php">Logout</a></li>
-                            <!-- Apenas para administradores -->
                             <?php if ($is_admin): ?>
                                 <li><a class="dropdown-item text-danger" href="../admin/index.php">Lista de Usuários</a></li>
                             <?php endif; ?>
                         </ul>
                     </li>
                 </ul>
+                <form class="d-flex">
+                    <input class="form-control me-2" type="search" name="search" placeholder="Buscar amigos..." aria-label="Search">
+                    <button class="btn btn-outline-success" type="submit">Buscar</button>
+                </form>
             </div>
         </div>
     </nav>
@@ -97,17 +100,15 @@ if ($user_id) {
     </div>
 
     <div class="collapse mt-3" id="scheduledSessions">
-    <div class="card card-body">
-        <h5>Minhas Sessões Agendadas</h5>
-        <div id="calendar"></div>
+        <div class="card card-body">
+            <h5>Minhas Sessões Agendadas</h5>
+            <div id="calendar"></div>
+        </div>
     </div>
-</div>
 
-
-<script>
+    <script>
         document.addEventListener('DOMContentLoaded', function () {
             const calendarEl = document.getElementById('calendar');
-
             const calendar = new FullCalendar.Calendar(calendarEl, {
                 initialView: 'dayGridMonth',
                 headerToolbar: {
@@ -118,13 +119,9 @@ if ($user_id) {
                 locale: 'pt-br',
                 height: 'auto',
             });
-
             calendar.render();
         });
     </script>
-
-
-
 
     <?php include 'footer.php'; ?>
 </body>
