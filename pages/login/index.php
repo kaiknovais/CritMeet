@@ -1,29 +1,29 @@
 <?php
-// Inclua o arquivo de configuração do banco de dados
 include('../../config.php');
 
 session_start();
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    // Coletar dados do formulário
     $login = $_POST['email'];
     $senha = $_POST['senha'];
 
-    // Prepare a consulta SQL
-    $stmt = $mysqli->prepare("SELECT * FROM users WHERE email = ? LIMIT 1");
-    $stmt->bind_param("s", $login);
+    if (filter_var($login, FILTER_VALIDATE_EMAIL)) {
+        $stmt = $mysqli->prepare("SELECT * FROM users WHERE email = ? LIMIT 1");
+        $stmt->bind_param("s", $login);
+    } else {
+        $stmt = $mysqli->prepare("SELECT * FROM users WHERE username = ? LIMIT 1");
+        $stmt->bind_param("s", $login);
+    }
+
     $stmt->execute();
     $result = $stmt->get_result();
 
-    // Verificar se o usuário existe
     if ($result->num_rows > 0) {
         $user = $result->fetch_assoc();
 
-        // Verificar a senha
-        if ($user['password'] === $senha) { // Usar um hash para senhas!
-            // Login bem-sucedido
+        if ($user['password'] === $senha) { 
             $_SESSION['user_id'] = $user['id'];
-            header("Location: ../homepage/index.php"); // Redireciona para a página desejada
+            header("Location: ../homepage/index.php"); 
             exit();
         } else {
             $error = "Senha incorreta.";
@@ -52,7 +52,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <div class="container">
         <h1>CritMeet</h1><br>
         <form method="POST" action="">
-            <input type="text" name="email" placeholder="Email" required /><br>
+            <input type="text" name="email" placeholder="Email ou Username" required /><br>
             <input type="password" name="senha" placeholder="Senha" required /><br>
             <button type="submit">Entrar</button><br>
         </form>

@@ -44,7 +44,7 @@ if (isset($_GET['id']) && is_numeric($_GET['id'])) {
 // Processa o formulário de atualização
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     // Captura os dados do formulário
-    $name = $_POST['name'];
+    $username = $_POST['username']; // Alterado para nome de usuário
     $gender = $_POST['gender'];
     $pronouns = $_POST['pronouns'];
     $preferences = $_POST['preferences'];
@@ -59,7 +59,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
     // Atualiza os dados no banco de dados
     $sql_update = "UPDATE users SET 
-                    name='$name', 
+                    username='$username', 
                     gender='$gender', 
                     pronouns='$pronouns', 
                     preferences='$preferences',
@@ -91,7 +91,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <title>Editar Informações do Usuário</title>
 </head>
-<body>
+<body>  
 
     <div class="container text-center">
         <h2>Editar Informações do Usuário</h2>
@@ -107,10 +107,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 <input type="file" id="image" name="image" class="form-control" />
             </div>
 
-
             <div class="mb-3">
-                <label for="name" class="form-label">Nome</label>
-                <input type="text" id="name" name="name" class="form-control" value="<?php echo htmlspecialchars($user['name']); ?>" />
+                <label for="username" class="form-label">Nome de Usuário</label>
+                <input type="text" id="username" name="username" class="form-control" value="<?php echo htmlspecialchars($user['username']); ?>" />
             </div>
             <div class="mb-3">
                 <label for="gender" class="form-label">Gênero</label>
@@ -125,13 +124,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 <input type="text" id="preferences" name="preferences" class="form-control" value="<?php echo htmlspecialchars($user['preferences']); ?>" />
             </div>
 
-            
             <div class="mb-3">
                 <label for="admin" class="form-label">Administrador</label>
                 <input type="checkbox" id="admin" name="admin" <?php echo $user['admin'] == 1 ? 'checked' : ''; ?> />
             </div>
 
-            
             <button type="submit" class="btn btn-success">Salvar Alterações</button>
             <?php include '../NavBack/index.php'; ?>
         </form>
