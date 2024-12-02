@@ -16,17 +16,22 @@ if (!isset($_GET['chat_id'])) {
 
 $chat_id = $_GET['chat_id'];
 
-$sql_messages = "SELECT sender_id, content, timestamp 
-                 FROM messages 
-                 WHERE chat_id = ? 
-                 ORDER BY timestamp ASC";
+// Consultar mensagens com o username do sender_id
+$sql_messages = "SELECT m.sender_id, m.content, m.timestamp, u.username
+                 FROM messages m
+                 JOIN users u ON m.sender_id = u.id
+                 WHERE m.chat_id = ? 
+                 ORDER BY m.timestamp ASC";
 $stmt = $mysqli->prepare($sql_messages);
 $stmt->bind_param("i", $chat_id);
 $stmt->execute();
 $result_messages = $stmt->get_result();
 
 while ($row = $result_messages->fetch_assoc()) {
-    echo "<p><strong>" . htmlspecialchars($row['sender_id']) . ":</strong> " . 
-         htmlspecialchars($row['content']) . " <small>(" . $row['timestamp'] . ")</small></p>";
+    // Formatando o timestamp para exibir apenas a hora
+    $formatted_time = date('H:i', strtotime($row['timestamp']));
+
+    echo "<p><strong>" . htmlspecialchars($row['username']) . ":</strong> " . 
+         htmlspecialchars($row['content']) . " <small>(" . $formatted_time . ")</small></p>";
 }
 ?>
