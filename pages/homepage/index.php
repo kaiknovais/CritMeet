@@ -68,6 +68,8 @@ if ($user_id) {
                             <li><a class="dropdown-item" href="#">Conexões</a></li>
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="../../components/Logout/index.php">Logout</a></li>
+                            <li><a class="dropdown-item" href="../friends/index.php">Amigos</a></li>
+                            <li><a class="dropdown-item" href="../search/index.php">Buscar</a></li>
                             <?php if ($is_admin): ?>
                                 <li><a class="dropdown-item text-danger" href="../admin/index.php">Lista de Usuários</a></li>
                             <?php endif; ?>
