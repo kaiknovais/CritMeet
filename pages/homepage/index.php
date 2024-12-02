@@ -5,7 +5,6 @@ session_start();
 $user_id = $_SESSION['user_id'] ?? null;
 $is_admin = false;
 
-// Verifica no banco de dados se o usuário é admin
 if ($user_id) {
     $query = "SELECT admin FROM users WHERE id = ?";
     $stmt = $mysqli->prepare($query);
@@ -75,6 +74,7 @@ if ($user_id) {
                         </ul>
                     </li>
                 </ul>
+
                 <form class="d-flex">
                     <input class="form-control me-2" type="search" name="search" placeholder="Buscar amigos..." aria-label="Search">
                     <button class="btn btn-outline-success" type="submit">Buscar</button>
