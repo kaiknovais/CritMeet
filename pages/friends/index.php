@@ -1,7 +1,21 @@
 <?php
-include('../../config.php');
+include '../../config.php';
 session_start();
 
+$user_id = $_SESSION['user_id'] ?? null;
+$is_admin = false;
+
+if ($user_id) {
+    $query = "SELECT admin FROM users WHERE id = ?";
+    $stmt = $mysqli->prepare($query);
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    if ($result && $row = $result->fetch_assoc()) {
+        $is_admin = $row['admin'] == 1; // Define como true se o usuário for admin
+    }
+    $stmt->close();
+}
 if (!isset($_SESSION['user_id'])) {
     echo "<script>alert('Usuário não autenticado.'); window.location.href='../../pages/login/index.php';</script>";
     exit();
