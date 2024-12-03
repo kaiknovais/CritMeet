@@ -138,9 +138,13 @@ $result_messages = $stmt_messages->get_result();
 <!-- Exibir mensagens -->
 <div id="messages">
     <?php while ($row = $result_messages->fetch_assoc()): ?>
+        <?php
+        // Formatando o timestamp para exibir apenas a hora
+        $formatted_time = date('H:i', strtotime($row['timestamp']));
+        ?>
         <p><strong><?php echo htmlspecialchars($row['username']); ?>:</strong> 
         <?php echo htmlspecialchars($row['content']); ?> 
-        <small>(<?php echo $row['timestamp']; ?>)</small></p>
+        <small>(<?php echo $formatted_time; ?>)</small></p>
     <?php endwhile; ?>
 </div>
 
