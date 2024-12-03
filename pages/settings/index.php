@@ -69,7 +69,7 @@ if ($user_id) {
                         </a>
                         <ul class="dropdown-menu">
                             <li><a class="dropdown-item" href="../settings/index.php">Configurações</a></li>
-                            <li><a class="dropdown-item" href="#">Conexões</a></li>
+                            <li><a class="dropdown-item" href="../friends/index.php">Conexões</a></li>
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="../../components/Logout/index.php">Logout</a></li>
                             <?php if ($is_admin): ?>
@@ -78,7 +78,7 @@ if ($user_id) {
                         </ul>
                     </li>
                 </ul>
-                <form class="d-flex">
+                <form class="d-flex" action="../search" method="GET">
                     <input class="form-control me-2" type="search" name="search" placeholder="Buscar amigos..." aria-label="Search">
                     <button class="btn btn-outline-success" type="submit">Buscar</button>
                 </form>

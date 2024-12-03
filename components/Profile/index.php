@@ -53,13 +53,13 @@ $user = $result->fetch_assoc();
                     </a>
                     <ul class="dropdown-menu">
                         <li><a class="dropdown-item" href="../../pages/settings/index.php">Configurações</a></li>
-                        <li><a class="dropdown-item" href="#">Conexões</a></li>
+                        <li><a class="dropdown-item" href="../../pages/friends/index.php">Conexões</a></li>
                         <li><hr class="dropdown-divider"></li>
                         <li><a class="dropdown-item" href="../../components/Logout/index.php">Logout</a></li>
                     </ul>
                 </li>
             </ul>
-            <form class="d-flex" role="search">
+            <form class="d-flex" role="search" action="../search" method="GET">
                 <input class="form-control me-2" type="search" placeholder="Bucar amigos" aria-label="Search">
                 <button class="button2" type="submit">Buscar</button>
             </form>
