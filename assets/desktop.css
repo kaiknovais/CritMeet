@@ -72,7 +72,10 @@ h2 {
     color: #173B45;
     font-size: 35px;
 }
-
+h3 {
+    color: #B43F3F;
+    font-size: 45px;
+}
 p {
     color: #173B45;
     text-align: center;
@@ -200,4 +203,154 @@ h5 {
     text-align: center;
     font-size: 30px;
     color: #B43F3F;
+}
+.chat-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 60vh; /* Altura dinâmica */
+    overflow: hidden; /* Evita rolagem */
+}
+
+.chat-messages {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    width: 100%;
+    max-height: 50vh; /* Limita a altura da lista de mensagens */
+    overflow-y: auto; /* Adiciona rolagem apenas para as mensagens */
+    border: 1px solid #ccc; /* Borda ao redor das mensagens */
+    border-radius: 8px;
+    padding: 10px;
+    background-color: antiquewhite;
+    text-align: left;
+    font-size: 20px;
+}
+
+.message-form {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    margin-top: 10px;
+}
+
+.message-input {
+    width: 90%;
+    height: 50px; /* Altura do campo de texto */
+    border: 1px solid antiquewhite;
+    border-radius: 8px;
+    padding: 10px;
+    margin-bottom: 10px; /* Espaçamento abaixo do campo */
+}
+
+.message-button {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    background-color: #B43F3F;
+    color: #173B45;
+    font-size: 16px;
+    cursor: pointer;
+    text-align: center;
+}
+
+.message-button:hover {
+    background-color: #832f2f;
+}
+
+@media (max-width: 600px) {
+    body, html {
+        background-color: antiquewhite; /* Ajuste para dispositivos móveis */
+        font-size: 16px;
+    }
+
+    .header {
+        flex-direction: column;
+        padding: 10px;
+    }
+
+    .header h1 {
+        font-size: 1.5em; /* Reduz o tamanho da fonte no mobile */
+    }
+
+    .content {
+        grid-template-columns: 1fr; /* Uma única coluna no mobile */
+        padding: 10px;
+        width: 100%;
+    }
+
+    .col {
+        padding: 10px;
+        text-align: left; /* Alinha o texto para melhor leitura */
+    }
+
+    .profile {
+        width: 100%; /* Usa toda a largura da tela */
+        padding: 5px;
+    }
+
+    .profile img {
+        width: 30px;
+        height: 30px;
+    }
+
+    .profile-container {
+        width: 90%; /* Reduz a largura no mobile */
+        padding: 10px;
+    }
+
+    .profile-table th, .profile-table td {
+        font-size: 16px; /* Reduz tamanho da fonte */
+    }
+
+    h1 {
+        font-size: 2em; /* Ajuste para mobile */
+    }
+
+    h2 {
+        font-size: 1.5em;
+    }
+
+    h3 {
+        font-size: 1.2em;
+    }
+
+    .chat-container {
+        height: auto; /* Ajusta a altura no mobile */
+    }
+
+    .chat-messages {
+        max-height: 40vh; /* Reduz altura da lista de mensagens */
+        font-size: 14px; /* Fonte menor */
+    }
+
+    .message-form {
+        width: 100%;
+        padding: 10px;
+    }
+
+    .message-input {
+        width: 100%; /* Usa toda a largura no mobile */
+        height: 40px; /* Reduz altura do campo */
+    }
+
+    .message-button {
+        width: 100%; /* Botão ocupa toda a largura */
+        padding: 10px;
+        font-size: 14px;
+    }
+
+    button, input {
+        font-size: 14px; /* Ajuste geral para elementos interativos */
+    }
+
+    .button2 {
+        font-size: 14px;
+    }
+
+    table, th, td {
+        font-size: 14px; /* Ajuste para tabelas */
+    }
 }
