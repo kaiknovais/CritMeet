@@ -152,23 +152,33 @@ $result_messages = $stmt_messages->get_result();
 <h2>Chat com <?php echo htmlspecialchars($friend_username); ?></h2>
 
 <!-- Exibir mensagens -->
-<div id="messages">
-    <?php while ($row = $result_messages->fetch_assoc()): ?>
-        <?php
-        // Formatando o timestamp para exibir apenas a hora
-        $formatted_time = date('H:i', strtotime($row['timestamp']));
-        ?>
-        <p><strong><?php echo htmlspecialchars($row['username']); ?>:</strong> 
-        <?php echo htmlspecialchars($row['content']); ?> 
-        <small>(<?php echo $formatted_time; ?>)</small></p>
-    <?php endwhile; ?>
+ 
+<div class="container mt-4 chat-container">
+    <div class="row">
+        <!-- Mostrar mensagens -->
+        <ul id="messages-list" class="chat-messages">
+            <?php while ($row = $result_messages->fetch_assoc()): ?>
+                <?php
+                // Formatando o timestamp para exibir apenas a hora
+                $formatted_time = date('H:i', strtotime($row['timestamp']));
+                ?>
+                <li>
+                    <strong><?php echo htmlspecialchars($row['username']); ?>:</strong>
+                    <?php echo htmlspecialchars($row['content']); ?>
+                    <br>
+                    <small><?php echo $formatted_time; ?></small>
+                </li>
+            <?php endwhile; ?>
+        </ul>
+    </div>
 </div>
 
-<!-- Formulário para enviar mensagens -->
-<form id="chatForm">
-    <textarea name="content" required></textarea>
-    <button type="submit">Enviar</button>
+<!-- Enviar mensagem -->
+<form id="message-form" class="message-form" method="POST">
+    <textarea name="content" class="message-input" placeholder="Digite sua mensagem" required></textarea>
+    <button type="submit" class="message-button">Enviar</button>
 </form>
+
 
 <script>
 // Função para carregar as mensagens em tempo real
