@@ -21,6 +21,7 @@ include('../../config.php');
     <div class="container">
         <h1>CritMeet</h1><br>
         <form method="POST" action="">
+            <input type="text" name="username" placeholder="Username" value="<?php echo isset($_POST['username']) ? htmlspecialchars($_POST['username']) : ''; ?>" required /><br>
             <input type="text" name="name" placeholder="Nome" value="<?php echo isset($_POST['name']) ? htmlspecialchars($_POST['name']) : ''; ?>" required /><br>
             <input type="text" name="gender" placeholder="Gênero" value="<?php echo isset($_POST['gender']) ? htmlspecialchars($_POST['gender']) : ''; ?>" required /><br>
             <input type="text" name="pronouns" placeholder="Pronomes" value="<?php echo isset($_POST['pronouns']) ? htmlspecialchars($_POST['pronouns']) : ''; ?>" required /><br>
@@ -38,6 +39,7 @@ include('../../config.php');
     
     <?php
     if ($_SERVER["REQUEST_METHOD"] == "POST") {
+        $username = $_POST["username"];
         $name = $_POST["name"];
         $gender = $_POST["gender"];
         $pronouns = $_POST["pronouns"];
@@ -49,8 +51,8 @@ include('../../config.php');
             exit();
         }
 
-        $stmt = $mysqli->prepare("INSERT INTO users (name, gender, pronouns, email, password) VALUES (?, ?, ?, ?, ?)");
-        $stmt->bind_param("sssss", $name, $gender, $pronouns, $email, $password);
+        $stmt = $mysqli->prepare("INSERT INTO users (username, name, gender, pronouns, email, password) VALUES (?, ?, ?, ?, ?, ?)");
+        $stmt->bind_param("ssssss", $username, $name, $gender, $pronouns, $email, $password);
 
         try {
             if ($stmt->execute()) {
@@ -69,4 +71,3 @@ include('../../config.php');
     ?>
 </body>
 </html>
-

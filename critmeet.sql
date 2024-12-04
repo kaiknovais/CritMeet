@@ -3,9 +3,9 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Tempo de geração: 01/12/2024 às 08:39
+-- Tempo de geração: 03/12/2024 às 23:35
 -- Versão do servidor: 10.4.32-MariaDB
--- Versão do PHP: 8.0.30
+-- Versão do PHP: 8.2.12
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
@@ -24,6 +24,45 @@ SET time_zone = "+00:00";
 -- --------------------------------------------------------
 
 --
+-- Estrutura para tabela `chats`
+--
+
+CREATE TABLE `chats` (
+  `id` int(11) NOT NULL,
+  `is_group` tinyint(1) NOT NULL DEFAULT 0,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Despejando dados para a tabela `chats`
+--
+
+INSERT INTO `chats` (`id`, `is_group`, `created_at`) VALUES
+(8, 0, '2024-12-02 23:37:36');
+
+-- --------------------------------------------------------
+
+--
+-- Estrutura para tabela `chat_members`
+--
+
+CREATE TABLE `chat_members` (
+  `id` int(11) NOT NULL,
+  `chat_id` int(11) NOT NULL,
+  `user_id` int(11) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Despejando dados para a tabela `chat_members`
+--
+
+INSERT INTO `chat_members` (`id`, `chat_id`, `user_id`) VALUES
+(15, 8, 1),
+(16, 8, 2);
+
+-- --------------------------------------------------------
+
+--
 -- Estrutura para tabela `friends`
 --
 
@@ -34,6 +73,39 @@ CREATE TABLE `friends` (
   `status` enum('pending','accepted') DEFAULT 'pending',
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Despejando dados para a tabela `friends`
+--
+
+INSERT INTO `friends` (`id`, `user_id`, `friend_id`, `status`, `created_at`) VALUES
+(4, 2, 1, 'accepted', '2024-12-02 21:55:36');
+
+-- --------------------------------------------------------
+
+--
+-- Estrutura para tabela `messages`
+--
+
+CREATE TABLE `messages` (
+  `id` int(11) NOT NULL,
+  `chat_id` int(11) NOT NULL,
+  `sender_id` int(11) NOT NULL,
+  `content` text NOT NULL,
+  `timestamp` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Despejando dados para a tabela `messages`
+--
+
+INSERT INTO `messages` (`id`, `chat_id`, `sender_id`, `content`, `timestamp`) VALUES
+(42, 8, 1, 'a', '2024-12-02 23:37:42'),
+(43, 8, 2, 'a', '2024-12-02 23:40:14'),
+(44, 8, 2, 'd', '2024-12-03 00:00:54'),
+(45, 8, 2, 'h', '2024-12-03 00:11:01'),
+(46, 8, 2, 'asd', '2024-12-03 00:17:50'),
+(47, 8, 1, 'ad', '2024-12-03 00:17:57');
 
 -- --------------------------------------------------------
 
@@ -67,12 +139,34 @@ INSERT INTO `users` (`id`, `username`, `name`, `gender`, `pronouns`, `email`, `p
 --
 
 --
+-- Índices de tabela `chats`
+--
+ALTER TABLE `chats`
+  ADD PRIMARY KEY (`id`);
+
+--
+-- Índices de tabela `chat_members`
+--
+ALTER TABLE `chat_members`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `chat_id` (`chat_id`),
+  ADD KEY `user_id` (`user_id`);
+
+--
 -- Índices de tabela `friends`
 --
 ALTER TABLE `friends`
   ADD PRIMARY KEY (`id`),
   ADD KEY `fk_user` (`user_id`),
   ADD KEY `fk_friend` (`friend_id`);
+
+--
+-- Índices de tabela `messages`
+--
+ALTER TABLE `messages`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `chat_id` (`chat_id`),
+  ADD KEY `sender_id` (`sender_id`);
 
 --
 -- Índices de tabela `users`
@@ -86,10 +180,28 @@ ALTER TABLE `users`
 --
 
 --
+-- AUTO_INCREMENT de tabela `chats`
+--
+ALTER TABLE `chats`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
+
+--
+-- AUTO_INCREMENT de tabela `chat_members`
+--
+ALTER TABLE `chat_members`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=17;
+
+--
 -- AUTO_INCREMENT de tabela `friends`
 --
 ALTER TABLE `friends`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+
+--
+-- AUTO_INCREMENT de tabela `messages`
+--
+ALTER TABLE `messages`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=48;
 
 --
 -- AUTO_INCREMENT de tabela `users`
@@ -102,11 +214,25 @@ ALTER TABLE `users`
 --
 
 --
+-- Restrições para tabelas `chat_members`
+--
+ALTER TABLE `chat_members`
+  ADD CONSTRAINT `chat_members_ibfk_1` FOREIGN KEY (`chat_id`) REFERENCES `chats` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `chat_members_ibfk_2` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
+
+--
 -- Restrições para tabelas `friends`
 --
 ALTER TABLE `friends`
   ADD CONSTRAINT `fk_friend` FOREIGN KEY (`friend_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
   ADD CONSTRAINT `fk_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
+
+--
+-- Restrições para tabelas `messages`
+--
+ALTER TABLE `messages`
+  ADD CONSTRAINT `messages_ibfk_1` FOREIGN KEY (`chat_id`) REFERENCES `chats` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `messages_ibfk_2` FOREIGN KEY (`sender_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
