@@ -90,7 +90,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         </ul>
                     </li>
                 </ul>
-                <form class="d-flex" action="../search" method="GET">
+                <form class="d-flex" action="../friends" method="GET">
                     <input class="form-control me-2" type="search" name="search" placeholder="Buscar amigos..." aria-label="Search">
                     <button class="btn btn-outline-success" type="submit">Buscar</button>
                 </form>
@@ -106,10 +106,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         <form method="POST" action="" enctype="multipart/form-data">
             <input type="file" name="image" accept="image/*" /><br>
-            <input type="text" name="name" placeholder="Nome" required /><br>
-            <input type="text" name="gender" placeholder="Gênero" required /><br>
-            <input type="text" name="pronouns" placeholder="Pronomes" required /><br>
-            <input type="text" name="preferences" placeholder="Preferências de Jogo" required ><br>
+            <input type="text" name="name" placeholder="Nome" /><br>
+            <input type="text" name="gender" placeholder="Gênero" /><br>
+            <input type="text" name="pronouns" placeholder="Pronomes" /><br>
+            <input type="text" name="preferences" placeholder="Preferências de Jogo" ><br>
             <button type="submit">Confirmar Alterações</button><br>
         </form>
     </div>

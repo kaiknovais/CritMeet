@@ -16,12 +16,64 @@ if ($user_id) {
     }
     $stmt->close();
 }
+
+// Verifica se o usuário está logado
 if (!isset($_SESSION['user_id'])) {
     echo "<script>alert('Usuário não autenticado.'); window.location.href='../../pages/login/index.php';</script>";
     exit();
 }
 
 $user_id = $_SESSION['user_id'];
+
+// --- Pesquisa de usuários ---
+$search_query = '';
+$search_result = [];
+if (isset($_GET['search'])) {  // Mudança de POST para GET
+    $search_query = $_GET['search'];
+    $sql = "SELECT id, username, name FROM users WHERE username LIKE ? AND id != ?";
+    $stmt = $mysqli->prepare($sql);
+    $search_term = "$search_query%";
+    $stmt->bind_param("si", $search_term, $user_id);
+    $stmt->execute();
+    $search_result = $stmt->get_result();
+}
+
+// --- Adicionar amigo ---
+if (isset($_POST['add_friend'])) {
+    $friend_id = $_POST['friend_id'];
+
+    // Verifica se já existe relação de amizade ou pedido pendente
+    $sql_check = "SELECT id FROM friends WHERE (user_id = ? AND friend_id = ? OR user_id = ? AND friend_id = ?) AND status IN ('accepted', 'pending')";
+    $stmt_check = $mysqli->prepare($sql_check);
+    $stmt_check->bind_param("iiii", $user_id, $friend_id, $friend_id, $user_id);
+    $stmt_check->execute();
+    $stmt_check->store_result();
+
+    if ($stmt_check->num_rows == 0) {
+        $sql_add = "INSERT INTO friends (user_id, friend_id, status) VALUES (?, ?, 'pending')";
+        $stmt_add = $mysqli->prepare($sql_add);
+        $stmt_add->bind_param("ii", $user_id, $friend_id);
+        $stmt_add->execute();
+        echo "<script>alert('Pedido de amizade enviado!');</script>";
+    } else {
+        echo "<script>alert('Você já é amigo ou há um pedido pendente.');</script>";
+    }
+}
+
+// --- Aceitar amizade ---
+if (isset($_POST['accept_friend'])) {
+    $friendship_id = $_POST['friendship_id'];
+
+    // Verificar se o pedido está pendente e pertence ao usuário atual
+    $sql_accept = "UPDATE friends SET status = 'accepted' WHERE id = ? AND friend_id = ? AND status = 'pending'";
+    $stmt_accept = $mysqli->prepare($sql_accept);
+    $stmt_accept->bind_param("ii", $friendship_id, $user_id);
+    if ($stmt_accept->execute()) {
+        echo "<script>alert('Solicitação de amizade aceita!');</script>";
+    } else {
+        echo "<script>alert('Erro ao aceitar a solicitação.');</script>";
+    }
+}
 
 // Consultar amigos aceitos
 $sql_friends = "SELECT u.id, u.username, u.name 
@@ -44,17 +96,6 @@ $stmt = $mysqli->prepare($sql_pending);
 $stmt->bind_param("i", $user_id);
 $stmt->execute();
 $result_pending = $stmt->get_result();
-
-// Aceitar amizade
-if (isset($_POST['accept_friend'])) {
-    $friendship_id = $_POST['friendship_id'];
-    $sql_accept = "UPDATE friends SET status = 'accepted' WHERE id = ?";
-    $stmt = $mysqli->prepare($sql_accept);
-    $stmt->bind_param("i", $friendship_id);
-    $stmt->execute();
-    header("Location: ../friends/index.php");
-    exit();
-}
 ?>
 
 <!DOCTYPE html>
@@ -62,7 +103,7 @@ if (isset($_POST['accept_friend'])) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Amigos e Pedidos Pendentes</title>
+    <title>Buscar Amigos</title>
     <link rel="stylesheet" type="text/css" href="../../assets/mobile.css" media="screen and (max-width: 600px)">
     <link rel="stylesheet" type="text/css" href="../../assets/desktop.css" media="screen and (min-width: 601px)">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -94,6 +135,7 @@ if (isset($_POST['accept_friend'])) {
                             <li><a class="dropdown-item" href="../friends/index.php">Conexões</a></li>
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="../../components/Logout/index.php">Logout</a></li>
+                            <li><a class="dropdown-item" href="../chat/index.php">Chat</a></li>
                             <?php if ($is_admin): ?>
                                 <li><a class="dropdown-item text-danger" href="../admin/index.php">Lista de Usuários</a></li>
                             <?php endif; ?>
@@ -101,7 +143,7 @@ if (isset($_POST['accept_friend'])) {
                     </li>
                 </ul>
 
-                <form class="d-flex" action="../search" method="GET">
+                <form class="d-flex" action="../friends" method="GET">
                     <input class="form-control me-2" type="search" name="search" placeholder="Buscar amigos..." aria-label="Search">
                     <button class="btn btn-outline-success" type="submit">Buscar</button>
                 </form>
@@ -109,30 +151,53 @@ if (isset($_POST['accept_friend'])) {
         </div>
     </nav>
 
-<h2>Meus Amigos</h2>
-<ul>
-<?php while ($row = $result_friends->fetch_assoc()): ?>
-    <li>
-        <?php echo htmlspecialchars($row['name']); ?> (<?php echo htmlspecialchars($row['username']); ?>)
-        <!-- Botão para abrir o chat -->
-        <a href="../message/index.php?friend_id=<?php echo $row['id']; ?>">Abrir Chat</a>
-    </li>
-<?php endwhile; ?>
-</ul>
+    <h1>Buscar Amigos</h1>
+    <form method="GET">
+        <input type="text" name="search" placeholder="Buscar usuário" value="<?php echo htmlspecialchars($search_query); ?>" style="width: 100%; padding: 8px;">
+        <button type="submit" style="margin-top: 10px;">Pesquisar</button>
+    </form>
 
-<h2>Solicitações de Amizade Pendentes</h2>
-<ul>
-<?php while ($row = $result_pending->fetch_assoc()): ?>
-    <li>
-        <?php echo htmlspecialchars($row['name']); ?> (<?php echo htmlspecialchars($row['username']); ?>)
-        <form method="POST" style="display:inline;">
-            <input type="hidden" name="friendship_id" value="<?php echo $row['id']; ?>">
-            <button type="submit" name="accept_friend">Aceitar</button>
-        </form>
-    </li>
-<?php endwhile; ?>
-</ul>
+    <div class="search-results" style="margin-top: 20px;">
+        <ul>
+            <?php if (!empty($search_result)): ?>
+                <?php while ($search = $search_result->fetch_assoc()): ?>
+                    <li>
+                        <?php echo htmlspecialchars($search['name']); ?> (<?php echo htmlspecialchars($search['username']); ?>)
+                        <form method="POST" style="display:inline;">
+                            <input type="hidden" name="friend_id" value="<?php echo $search['id']; ?>">
+                            <button type="submit" name="add_friend">Adicionar</button>
+                        </form>
+                    </li>
+                <?php endwhile; ?>
+            <?php else: ?>
+                <li>Nenhum usuário encontrado.</li>
+            <?php endif; ?>
+        </ul>
+    </div>
 
-<?php include 'footer.php'; ?>
+    <h2>Meus Amigos</h2>
+    <ul>
+        <?php while ($row = $result_friends->fetch_assoc()): ?>
+            <li>
+                <?php echo htmlspecialchars($row['name']); ?> (<?php echo htmlspecialchars($row['username']); ?>)
+                <a href="../../components/ViewProfile/index.php?id=<?= $row['id'] ?>"><button class="view">Ver Perfil</button></a>
+            </li>
+        <?php endwhile; ?>
+    </ul>
+
+    <h2>Solicitações de Amizade Pendentes</h2>
+    <ul>
+        <?php while ($row = $result_pending->fetch_assoc()): ?>
+            <li>
+                <?php echo htmlspecialchars($row['name']); ?> (<?php echo htmlspecialchars($row['username']); ?>)
+                <form method="POST" style="display:inline;">
+                    <input type="hidden" name="friendship_id" value="<?php echo $row['id']; ?>">
+                    <button type="submit" name="accept_friend">Aceitar</button>
+                </form>
+            </li>
+        <?php endwhile; ?>
+    </ul>
+
+    <?php include 'footer.php'; ?>
 </body>
 </html>
