@@ -131,9 +131,9 @@ $result_messages = $stmt_messages->get_result();
                         <ul class="dropdown-menu">
                             <li><a class="dropdown-item" href="../settings/index.php">Configurações</a></li>
                             <li><a class="dropdown-item" href="../friends/index.php">Conexões</a></li>
+                            <li><a class="dropdown-item" href="../chat/index.php">Chat</a></li>
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="../../components/Logout/index.php">Logout</a></li>
-                            <li><a class="dropdown-item" href="../chat/index.php">Chat</a></li>
                             <?php if ($is_admin): ?>
                                 <li><a class="dropdown-item text-danger" href="../admin/index.php">Lista de Usuários</a></li>
                             <?php endif; ?>

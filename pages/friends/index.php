@@ -133,9 +133,9 @@ $result_pending = $stmt->get_result();
                         <ul class="dropdown-menu">
                             <li><a class="dropdown-item" href="../settings/index.php">Configurações</a></li>
                             <li><a class="dropdown-item" href="../friends/index.php">Conexões</a></li>
+                            <li><a class="dropdown-item" href="../chat/index.php">Chat</a></li>
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="../../components/Logout/index.php">Logout</a></li>
-                            <li><a class="dropdown-item" href="../chat/index.php">Chat</a></li>
                             <?php if ($is_admin): ?>
                                 <li><a class="dropdown-item text-danger" href="../admin/index.php">Lista de Usuários</a></li>
                             <?php endif; ?>
@@ -151,7 +151,7 @@ $result_pending = $stmt->get_result();
         </div>
     </nav>
 
-    <h1>Buscar Amigos</h1>
+    <h3>Buscar Amigos</h3>
     <form method="GET">
         <input type="text" name="search" placeholder="Buscar usuário" value="<?php echo htmlspecialchars($search_query); ?>" style="width: 100%; padding: 8px;">
         <button type="submit" style="margin-top: 10px;">Pesquisar</button>
