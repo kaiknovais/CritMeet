@@ -10,7 +10,7 @@ if (!isset($_GET['id'])) {
 $user_id = $_GET['id'];
 
 // Atualizando a consulta para incluir id, email e admin
-$sql = "SELECT id, email, name, image, gender, pronouns, preferences, admin FROM users WHERE id='$user_id'";
+$sql = "SELECT * FROM users WHERE id='$user_id'";
 $result = $mysqli->query($sql);
 
 if ($result->num_rows == 0) {
@@ -45,20 +45,8 @@ $user = $result->fetch_assoc();
     <?php else: ?>
         <img src="default-avatar.png" alt="Imagem de Perfil Padrão" />
     <?php endif; ?>
-    <h2><?php echo htmlspecialchars($user['name']); ?></h2>
+    <h2><?php echo htmlspecialchars($user['username']); ?></h2>
     <table class="table profile-table">
-        <tr>
-            <th>ID:</th>
-            <td><?php echo htmlspecialchars($user['id']); ?></td>
-        </tr>
-        <tr>
-            <th>Email:</th>
-            <td><?php echo htmlspecialchars($user['email']); ?></td>
-        </tr>
-        <tr>
-            <th>Admin:</th>
-            <td><?php echo $user['admin'] == 1 ? 'Sim' : 'Não'; ?></td>
-        </tr>
         <tr>
             <th>Gênero:</th>
             <td><?php echo htmlspecialchars($user['gender']); ?></td>

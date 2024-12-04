@@ -68,7 +68,7 @@ if ($user_id) {
                             <li><a class="dropdown-item" href="../friends/index.php">Conexões</a></li>
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="../../components/Logout/index.php">Logout</a></li>
-                            <li><a class="dropdown-item" href="../groups/index.php">Group</a></li>
+                            <li><a class="dropdown-item" href="../chat/index.php">Chat</a></li>
                             <?php if ($is_admin): ?>
                                 <li><a class="dropdown-item text-danger" href="../admin/index.php">Lista de Usuários</a></li>
                             <?php endif; ?>
@@ -76,7 +76,7 @@ if ($user_id) {
                     </li>
                 </ul>
 
-                <form class="d-flex" action="../search" method="GET">
+                <form class="d-flex" action="../friends" method="GET">
                     <input class="form-control me-2" type="search" name="search" placeholder="Buscar amigos..." aria-label="Search">
                     <button class="btn btn-outline-success" type="submit">Buscar</button>
                 </form>
