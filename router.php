@@ -9,7 +9,7 @@ if (file_exists($path) && !is_dir($path)) {
 
 // Se for "/", manda para pages/home/index.php
 if ($request === '/' || $request === '') {
-    require __DIR__ . '../pages/home/index.php';
+    require __DIR__ . '/pages/home/index.php';
     exit;
 }
 
