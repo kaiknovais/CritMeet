@@ -11,7 +11,7 @@ if ($request === '') {
 }
 
 // Constrói o caminho: pages/[rota]/index.php
-$targetFile = __DIR__ . "/../../$request/index.php";
+$targetFile = __DIR__ . "/../$request/index.php";
 
 // Verifica se o arquivo existe
 if (file_exists($targetFile)) {
