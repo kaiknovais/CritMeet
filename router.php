@@ -9,7 +9,7 @@ if (file_exists($file)) {
 
 // Se for a raiz "/", redireciona para home/index.php
 if ($request === '/' || $request === '') {
-    require __DIR__ . '/pages/home/index.php';
+    require __DIR__ . '../pages/home/index.php';
     exit;
 }
 
