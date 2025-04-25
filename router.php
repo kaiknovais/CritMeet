@@ -1,24 +1,31 @@
 <?php
-// Captura o caminho da URL (sem query strings)
 $requestUri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+$requestPath = trim($requestUri, '/');
 
-// Remove barras extras do começo/fim
-$request = trim($requestUri, '/');
-
-// Se for vazio, redireciona para a página 'home'
-if ($request === '') {
-    $request = 'home';
-}
-
-// Constrói o caminho: pages/[rota]/index.php
-$targetFile = __DIR__ . "/../$request/index.php";
-
-// Verifica se o arquivo existe
-if (file_exists($targetFile)) {
-    require $targetFile;
+// Se for vazio (raiz), redireciona para pages/home/index.php
+if ($requestPath === '') {
+    require __DIR__ . '/pages/home/index.php';
     exit;
 }
 
-// Se não existir, mostra erro
+// Tenta buscar dentro de pages/
+$pagesPath = __DIR__ . "/pages/$requestPath/index.php";
+
+// Tenta buscar na raiz do projeto
+$rootPath = __DIR__ . "/$requestPath/index.php";
+
+// Verifica se existe em pages/
+if (file_exists($pagesPath)) {
+    require $pagesPath;
+    exit;
+}
+
+// Verifica se existe na raiz
+if (file_exists($rootPath)) {
+    require $rootPath;
+    exit;
+}
+
+// Se não existir em nenhum lugar
 http_response_code(404);
-echo "Página '$request' não encontrada.";
+echo "Página '$requestPath' não encontrada.";
