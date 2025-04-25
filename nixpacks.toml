@@ -8,4 +8,4 @@ cmds = []
 cmds = []
 
 [start]
-cmd = "php -S 0.0.0.0:8080 pages"
+cmd = "php -S 0.0.0.0:8080 -t pages index.php"
