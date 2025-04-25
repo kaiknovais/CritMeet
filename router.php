@@ -1,18 +1,17 @@
 <?php
-$request = $_SERVER['REQUEST_URI'];
-$path = __DIR__ . '../pages' . $request;
+$request = trim(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH), '/');
 
-// Serve o arquivo diretamente, se existir
-if (file_exists($path) && !is_dir($path)) {
-    return false;
+// Se estiver em branco, redireciona para 'home'
+if ($request === '') {
+    $request = 'home';
 }
 
-// Se for "/", manda para pages/home/index.php
-if ($request === '/' || $request === '') {
-    require __DIR__ . '/pages/home/index.php';
-    exit;
-}
+// Caminho completo até o index.php da página
+$target = __DIR__ . "/pages/$request/index.php";
 
-// Caso contrário, página não encontrada
-http_response_code(404);
-echo "Página não encontrada.";
+if (file_exists($target)) {
+    require $target;
+} else {
+    http_response_code(404);
+    echo "Página '$request' não encontrada.";
+}
