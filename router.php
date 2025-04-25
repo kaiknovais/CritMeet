@@ -1,17 +1,24 @@
 <?php
-$request = trim(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH), '/');
+// Captura o caminho da URL (sem query strings)
+$requestUri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 
-// Se estiver em branco, redireciona para 'home'
+// Remove barras extras do começo/fim
+$request = trim($requestUri, '/');
+
+// Se for vazio, redireciona para a página 'home'
 if ($request === '') {
     $request = 'home';
 }
 
-// Caminho completo até o index.php da página
-$target = __DIR__ . "/pages/$request/index.php";
+// Constrói o caminho: pages/[rota]/index.php
+$targetFile = __DIR__ . "/pages/$request/index.php";
 
-if (file_exists($target)) {
-    require $target;
-} else {
-    http_response_code(404);
-    echo "Página '$request' não encontrada.";
+// Verifica se o arquivo existe
+if (file_exists($targetFile)) {
+    require $targetFile;
+    exit;
 }
+
+// Se não existir, mostra erro
+http_response_code(404);
+echo "Página '$request' não encontrada.";
