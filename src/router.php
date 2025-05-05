@@ -4,15 +4,15 @@ $requestPath = trim($requestUri, '/');
 
 // Se for vazio (raiz), redireciona para pages/home/index.php
 if ($requestPath === '') {
-    require __DIR__ . '/pages/home/index.php';
+    require __DIR__ . '/src/pages/home/index.php';
     exit;
 }
 
 // Tenta buscar dentro de pages/
-$pagesPath = __DIR__ . "/pages/$requestPath/index.php";
+$pagesPath = __DIR__ . "/src/pages/$requestPath/index.php";
 
 // Tenta buscar na raiz do projeto
-$rootPath = __DIR__ . "/$requestPath/index.php";
+$rootPath = __DIR__ . "/src/../$requestPath/index.php";
 
 // Verifica se existe em pages/
 if (file_exists($pagesPath)) {

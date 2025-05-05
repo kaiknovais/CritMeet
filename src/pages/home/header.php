@@ -10,8 +10,8 @@ $userAgent = $_SERVER['HTTP_USER_AGENT'];
     <title>リンゴジュース</title>
     <?php
     echo (strpos($userAgent, 'Mobile') !== false) ? 
-    '<link rel="stylesheet" href="../../assets/mobile.css">' : 
-    '<link rel="stylesheet" href="../../assets/desktop.css">';
+    '<link rel="stylesheet" href="../../../assets/mobile.css">' : 
+    '<link rel="stylesheet" href="../../../assets/desktop.css">';
     ?>
 </head>
 <body>
