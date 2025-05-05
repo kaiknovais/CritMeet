@@ -19,7 +19,7 @@
         <h1>CritMeet</h1>
         <h2>Saudações!</h2>
         <h2>Vamos começar a sua jornada!</h2>
-        <a href="../login/index.php">
+        <a href="../../login/index.php">
             <button type="button">INICIAR</button>
         </a>
     </div>
