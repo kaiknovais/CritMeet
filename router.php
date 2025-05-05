@@ -5,15 +5,15 @@ $requestPath = trim(str_replace($basePath, '', $requestUri), '/');
 
 // Se for raiz, redireciona para src/pages/home/index.php
 if ($requestPath === '' || $requestPath === 'index.php') {
-    require __DIR__ . '/../pages/home/index.php';
+    require __DIR__ . '/pages/home/index.php';
     exit;
 }
 
 // Caminho dentro de src/pages
-$pagesPath = __DIR__ . "/../pages/$requestPath/index.php";
+$pagesPath = __DIR__ . "/pages/$requestPath/index.php";
 
 // Caminho direto dentro de src/
-$localPath = __DIR__ . "/../$requestPath/index.php";
+$localPath = __DIR__ . "/$requestPath/index.php";
 
 // Verifica se existe em src/pages
 if (file_exists($pagesPath)) {
