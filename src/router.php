@@ -1,6 +1,7 @@
 <?php
+$basePath = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/');
 $requestUri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-$requestPath = trim($requestUri, '/');
+$requestPath = trim(str_replace($basePath, '', $requestUri), '/');
 
 // Se for raiz, redireciona para src/pages/home/index.php
 if ($requestPath === '' || $requestPath === 'index.php') {
