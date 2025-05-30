@@ -23,7 +23,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
         if ($user['password'] === $senha) { 
             $_SESSION['user_id'] = $user['id'];
-            header("Location: ../homepage/index.php"); 
+            header("Location: ../homepage/"); 
             exit();
         } else {
             $error = "Senha incorreta.";
@@ -56,7 +56,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             <input type="password" name="senha" placeholder="Senha" required /><br>
             <button type="submit">Entrar</button><br>
         </form>
-        <a href="../register/index.php">
+        <a href="../register/">
             <button type="button">Cadastre-se</button><br>
         </a>
         <button type="button">Google</button>

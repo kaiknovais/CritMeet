@@ -3,7 +3,7 @@ include('../../config.php');
 session_start();
 
 if (!isset($_SESSION['user_id'])) {
-    echo "<script>alert('Usuário não autenticado.'); window.location.href='../../pages/login/index.php';</script>";
+    echo "<script>alert('Usuário não autenticado.'); window.location.href='../../pages/login/';</script>";
     exit();
 }
 
@@ -11,7 +11,7 @@ $user_id = $_SESSION['user_id'];
 $chat_id = $_GET['chat_id'] ?? null;
 
 if (!$chat_id) {
-    echo "<script>alert('ID do grupo não fornecido.'); window.location.href='../group/index.php';</script>";
+    echo "<script>alert('ID do grupo não fornecido.'); window.location.href='../group/';</script>";
     exit();
 }
 

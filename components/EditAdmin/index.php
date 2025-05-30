@@ -4,7 +4,7 @@ session_start();
 
 // Verifica se o usuário está logado e se o ID do usuário foi salvo na sessão
 if (!isset($_SESSION['user_id'])) {
-    echo "<script>alert('Usuário não autenticado.'); window.location.href='../../pages/login/index.php';</script>";
+    echo "<script>alert('Usuário não autenticado.'); window.location.href='../../pages/login/';</script>";
     exit();
 }
 
@@ -17,7 +17,7 @@ $user_logged_in = $result->fetch_assoc();
 
 // Verifica se o usuário é um administrador (admin = 1)
 if ($user_logged_in['admin'] != 1) {
-    echo "<script>alert('Acesso negado. Somente administradores podem editar usuários.'); window.location.href='../../pages/admin/index.php';</script>";
+    echo "<script>alert('Acesso negado. Somente administradores podem editar usuários.'); window.location.href='../../pages/admin/';</script>";
     exit();
 }
 
@@ -32,12 +32,12 @@ if (isset($_GET['id']) && is_numeric($_GET['id'])) {
 
     // Verifica se o usuário foi encontrado
     if (!$user) {
-        echo "<script>alert('Usuário não encontrado.'); window.location.href='../../pages/admin/index.php';</script>";
+        echo "<script>alert('Usuário não encontrado.'); window.location.href='../../pages/admin/';</script>";
         exit();
     }
 } else {
     // Caso o ID não seja válido ou não seja fornecido
-    echo "<script>alert('ID inválido ou não fornecido.'); window.location.href='../../pages/admin/index.php';</script>";
+    echo "<script>alert('ID inválido ou não fornecido.'); window.location.href='../../pages/admin/';</script>";
     exit();
 }
 
@@ -75,7 +75,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
     // Executa a atualização
     if ($mysqli->query($sql_update)) {
-        echo "<script>alert('Informações atualizadas com sucesso!'); window.location.href='../../pages/admin/index.php';</script>";
+        echo "<script>alert('Informações atualizadas com sucesso!'); window.location.href='../../pages/admin/';</script>";
     } else {
         echo "<script>alert('Erro ao atualizar as informações.');</script>";
     }
@@ -130,7 +130,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             </div>
 
             <button type="submit" class="btn btn-success">Salvar Alterações</button>
-            <?php include '../NavBack/index.php'; ?>
+            <?php include '../NavBack/'; ?>
         </form>
     </div>
 

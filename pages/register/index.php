@@ -29,7 +29,7 @@ include('../../config.php');
             <input type="password" name="password" placeholder="Senha" required /><br>
             <input type="password" name="confirm_password" placeholder="Confirmar Senha" required /><br>
             <button type="submit">Registrar</button><br>
-            <a href="../login/index.php">
+            <a href="../login/">
                 <button type="button">Voltar</button><br>
             </a>
         </form>

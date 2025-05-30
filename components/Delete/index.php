@@ -3,7 +3,7 @@ include('../../config.php');
 session_start();
 
 if (!isset($_SESSION['user_id'])) {
-    header("Location: ../../login/index.php");
+    header("Location: ../../login/");
     exit();
 }
 
@@ -15,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_user'])) {
 
         if ($stmt->execute()) {
             session_destroy();
-            header("Location: ../../pages/home/index.php");
+            header("Location: ../../pages/home/");
             exit();
         } else {
             echo "Erro ao excluir a conta: " . $stmt->error;

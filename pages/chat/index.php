@@ -7,7 +7,7 @@ $user_id = $_SESSION['user_id'] ?? null;
 $is_admin = false;
 
 if (!$user_id) {
-    echo "<script>alert('Usuário não autenticado.'); window.location.href='../../pages/login/index.php';</script>";
+    echo "<script>alert('Usuário não autenticado.'); window.location.href='../../pages/login/';</script>";
     exit();
 }
 
@@ -74,7 +74,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['group_name'])) {
             $stmt_member->execute();
 
             // Mensagem de sucesso
-            echo "<script>alert('Grupo criado com sucesso!'); window.location.href='index.php';</script>";
+            echo "<script>alert('Grupo criado com sucesso!'); window.location.href='';</script>";
         }
     } else {
         echo "<script>alert('O nome do grupo não pode estar vazio.');</script>";
@@ -104,26 +104,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['group_name'])) {
 
     <nav class="navbar navbar-expand-lg bg-body-tertiary" data-bs-theme="dark">
         <div class="container-fluid">
-            <a class="navbar-brand" href="../homepage/index.php">CritMeet</a>
+            <a class="navbar-brand" href="../homepage/">CritMeet</a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarSupportedContent">
                 <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                    <li class="nav-item"><a class="nav-link active" href="../homepage/index.php">Home</a></li>
-                    <li class="nav-item"><a class="nav-link" href="../Profile/index.php">Meu Perfil</a></li>
+                    <li class="nav-item"><a class="nav-link active" href="../homepage/">Home</a></li>
+                    <li class="nav-item"><a class="nav-link" href="../Profile/">Meu Perfil</a></li>
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                             Mais...
                         </a>
                         <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="../settings/index.php">Configurações</a></li>
-                            <li><a class="dropdown-item" href="../friends/index.php">Conexões</a></li>
-                            <li><a class="dropdown-item" href="../chat/index.php">Chat</a></li>
+                            <li><a class="dropdown-item" href="../settings/">Configurações</a></li>
+                            <li><a class="dropdown-item" href="../friends/">Conexões</a></li>
+                            <li><a class="dropdown-item" href="../chat/">Chat</a></li>
                             <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="../../components/Logout/index.php">Logout</a></li>
+                            <li><a class="dropdown-item" href="../../components/Logout/">Logout</a></li>
                             <?php if ($is_admin): ?>
-                                <li><a class="dropdown-item text-danger" href="../admin/index.php">Lista de Usuários</a></li>
+                                <li><a class="dropdown-item text-danger" href="../admin/">Lista de Usuários</a></li>
                             <?php endif; ?>
                         </ul>
                     </li>
@@ -145,7 +145,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['group_name'])) {
                     <?php while ($row = $result_friends->fetch_assoc()): ?>
                         <li class="list-group-item d-flex justify-content-between align-items-center">
                             <span><?php echo htmlspecialchars($row['name']); ?> (<?php echo htmlspecialchars($row['username']); ?>)</span>
-                            <a class="btn btn-link btn-sm" href="../message/index.php?friend_id=<?php echo $row['id']; ?>">Abrir Chat</a>
+                            <a class="btn btn-link btn-sm" href="../message/?friend_id=<?php echo $row['id']; ?>">Abrir Chat</a>
                         </li>
                     <?php endwhile; ?>
                 </ul>
@@ -157,9 +157,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['group_name'])) {
                     <?php while ($row = $result_groups->fetch_assoc()): ?>
                         <li class="list-group-item d-flex justify-content-between align-items-center">
                             <span><?php echo htmlspecialchars($row['name']); ?></span>
-                            <a class="btn btn-link btn-sm" href="../groupmessage/index.php?chat_id=<?php echo $row['id']; ?>">Entrar no Chat</a>
+                            <a class="btn btn-link btn-sm" href="../groupmessage/?chat_id=<?php echo $row['id']; ?>">Entrar no Chat</a>
                             <?php if ($row['creator_id'] == $user_id || $is_admin): ?>
-                                <a class="btn btn-warning btn-sm" href="../editgroup/index.php?chat_id=<?php echo $row['id']; ?>">Editar</a>
+                                <a class="btn btn-warning btn-sm" href="../editgroup/?chat_id=<?php echo $row['id']; ?>">Editar</a>
                             <?php endif; ?>
                         </li>
                     <?php endwhile; ?>

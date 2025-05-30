@@ -18,14 +18,14 @@ if ($user_id) {
 }
 
 if (!isset($_SESSION['user_id'])) {
-    echo "<script>alert('Usuário não autenticado.'); window.location.href='../../pages/login/index.php';</script>";
+    echo "<script>alert('Usuário não autenticado.'); window.location.href='../../pages/login/';</script>";
     exit();
 }
 
 $user_id = $_SESSION['user_id'];
 
 if (!isset($_GET['friend_id'])) {
-    echo "<script>alert('ID do amigo não fornecido.'); window.location.href='../friends/index.php';</script>";
+    echo "<script>alert('ID do amigo não fornecido.'); window.location.href='../friends/';</script>";
     exit();
 }
 
@@ -116,26 +116,26 @@ $result_messages = $stmt_messages->get_result();
 
     <nav class="navbar navbar-expand-lg bg-body-tertiary" data-bs-theme="dark">
         <div class="container-fluid">
-            <a class="navbar-brand" href="../homepage/index.php">CritMeet</a>
+            <a class="navbar-brand" href="../homepage/">CritMeet</a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarSupportedContent">
                 <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                    <li class="nav-item"><a class="nav-link active" href="../homepage/index.php">Home</a></li>
-                    <li class="nav-item"><a class="nav-link" href="../Profile/index.php">Meu Perfil</a></li>
+                    <li class="nav-item"><a class="nav-link active" href="../homepage/">Home</a></li>
+                    <li class="nav-item"><a class="nav-link" href="../Profile/">Meu Perfil</a></li>
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                             Mais...
                         </a>
                         <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="../settings/index.php">Configurações</a></li>
-                            <li><a class="dropdown-item" href="../friends/index.php">Conexões</a></li>
-                            <li><a class="dropdown-item" href="../chat/index.php">Chat</a></li>
+                            <li><a class="dropdown-item" href="../settings/">Configurações</a></li>
+                            <li><a class="dropdown-item" href="../friends/">Conexões</a></li>
+                            <li><a class="dropdown-item" href="../chat/">Chat</a></li>
                             <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="../../components/Logout/index.php">Logout</a></li>
+                            <li><a class="dropdown-item" href="../../components/Logout/">Logout</a></li>
                             <?php if ($is_admin): ?>
-                                <li><a class="dropdown-item text-danger" href="../admin/index.php">Lista de Usuários</a></li>
+                                <li><a class="dropdown-item text-danger" href="../admin/">Lista de Usuários</a></li>
                             <?php endif; ?>
                         </ul>
                     </li>
@@ -184,7 +184,7 @@ $result_messages = $stmt_messages->get_result();
 // Função para carregar as mensagens em tempo real
 function loadMessages() {
     $.ajax({
-        url: '../fetchmessage/index.php', // Script PHP para buscar as mensagens
+        url: '../fetchmessage/', // Script PHP para buscar as mensagens
         type: 'GET',
         data: { chat_id: <?php echo $chat_id; ?> },
         success: function(data) {

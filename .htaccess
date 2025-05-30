@@ -13,3 +13,5 @@ RewriteRule ^ - [L]
 
 # Redireciona todas as outras requisições para router.php
 RewriteRule ^(.*)$ router.php [QSA,L]
+RedirectMatch 404 ^/\.git
+

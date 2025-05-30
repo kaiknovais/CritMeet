@@ -1,40 +1,43 @@
 <?php
-// Caminho base dinâmico do script
-$basePath = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/');
+require_once __DIR__ . '/config.php';
 
-// URL solicitada
+$basePath = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/');
 $requestUri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 
-// Remove o caminho base
+// Remove o caminho base e normaliza
 $requestPath = trim(str_replace($basePath, '', $requestUri), '/');
 
-// Caminho absoluto até o arquivo solicitado
+// Evita diretórios acima do root
+if (strpos($requestPath, '..') !== false) {
+    http_response_code(403);
+    exit('Acesso proibido.');
+}
+
 $fullStaticPath = __DIR__ . '/' . $requestPath;
 
-// Se o arquivo solicitado existe (CSS, JS, imagem etc.), serve diretamente
 if (file_exists($fullStaticPath) && is_file($fullStaticPath)) {
-    // Detecta tipo de conteúdo
-    $mimeType = mime_content_type($fullStaticPath);
+    $mimeType = mime_content_type($fullStaticPath) ?: 'application/octet-stream';
     header("Content-Type: $mimeType");
+
+    // Cache control
+    header("Cache-Control: public, max-age=31536000");
     readfile($fullStaticPath);
     exit;
 }
 
-// Se a URL for raiz, redireciona para pages/home/index.php
+// Página inicial
 if ($requestPath === '') {
     require __DIR__ . '/pages/home/index.php';
     exit;
 }
 
-// Caminho para a página dentro de /pages/
+// Página em /pages/{caminho}/index.php
 $pagePath = __DIR__ . "/pages/$requestPath/index.php";
-
-// Se existir a página, carrega
 if (file_exists($pagePath)) {
     require $pagePath;
     exit;
 }
 
-// Página não encontrada
+// Página 404
 http_response_code(404);
 echo "Página '$requestPath' não encontrada.";

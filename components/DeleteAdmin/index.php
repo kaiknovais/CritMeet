@@ -4,7 +4,7 @@ session_start();
 
 // Verifica se o usuário está logado
 if (!isset($_SESSION['user_id'])) {
-    header("Location: ../../login/index.php");
+    header("Location: ../../login/");
     exit();
 }
 
@@ -19,25 +19,25 @@ if (isset($_GET['id']) && is_numeric($_GET['id'])) {
         // Executa a exclusão
         if ($stmt->execute()) {
             // Redireciona automaticamente para a página de administração
-            header("Location: ../../pages/admin/index.php");
+            header("Location: ../../pages/admin/");
             exit();
         } else {
             // Caso ocorra um erro, exibe mensagem e redireciona para a página de administração
             echo "<p>Erro ao excluir o usuário: " . $stmt->error . "</p>";
-            header("Location: ../../pages/admin/index.php");
+            header("Location: ../../pages/admin/");
             exit();
         }
 
     } else {
         // Caso ocorra erro na preparação da consulta SQL
         echo "<p>Erro na preparação do SQL: " . $mysqli->error . "</p>";
-        header("Location: ../../pages/admin/index.php");
+        header("Location: ../../pages/admin/");
         exit();
     }
 } else {
     // Caso o ID não seja válido ou não seja fornecido
     echo "<p>ID inválido ou não fornecido.</p>";
-    header("Location: ../../pages/admin/index.php");
+    header("Location: ../../pages/admin/");
     exit();
 }
 ?>

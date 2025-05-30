@@ -39,7 +39,7 @@ if ($user_id) {
             if (confirmation) {
                 const accountName = prompt("Por favor, insira o nome da sua conta para confirmar a exclusão:");
                 if (accountName) {
-                    window.location.href = "../../components/Delete/index.php";
+                    window.location.href = "../../components/Delete/";
                 } else {
                     alert("Nome da conta não pode ser vazio.");
                 }
@@ -55,26 +55,26 @@ if ($user_id) {
     <div>
     <nav class="navbar navbar-expand-lg bg-body-tertiary" data-bs-theme="dark">
         <div class="container-fluid">
-            <a class="navbar-brand" href="../homepage/index.php">CritMeet</a>
+            <a class="navbar-brand" href="../homepage/">CritMeet</a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarSupportedContent">
                 <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                    <li class="nav-item"><a class="nav-link active" href="../homepage/index.php">Home</a></li>
-                    <li class="nav-item"><a class="nav-link" href="../Profile/index.php">Meu Perfil</a></li>
+                    <li class="nav-item"><a class="nav-link active" href="../homepage/">Home</a></li>
+                    <li class="nav-item"><a class="nav-link" href="../Profile/">Meu Perfil</a></li>
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                             Mais...
                         </a>
                         <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="../settings/index.php">Configurações</a></li>
-                            <li><a class="dropdown-item" href="../friends/index.php">Conexões</a></li>
-                            <li><a class="dropdown-item" href="../chat/index.php">Chat</a></li>
+                            <li><a class="dropdown-item" href="../settings/">Configurações</a></li>
+                            <li><a class="dropdown-item" href="../friends/">Conexões</a></li>
+                            <li><a class="dropdown-item" href="../chat/">Chat</a></li>
                             <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="../../components/Logout/index.php">Logout</a></li>
+                            <li><a class="dropdown-item" href="../../components/Logout/">Logout</a></li>
                             <?php if ($is_admin): ?>
-                                <li><a class="dropdown-item text-danger" href="../admin/index.php">Lista de Usuários</a></li>
+                                <li><a class="dropdown-item text-danger" href="../admin/">Lista de Usuários</a></li>
                             <?php endif; ?>
                         </ul>
                     </li>
@@ -90,7 +90,7 @@ if ($user_id) {
 
 <div class="container">
   <div class="row">
-    <div class="col"><a href="../editprofile/index.php"> <button type="button">Editar Perfil</button></a><br></div>
+    <div class="col"><a href="../editprofile/"> <button type="button">Editar Perfil</button></a><br></div>
     
     <div class="col">
       <button type="button" data-bs-toggle="collapse" data-bs-target="#notificacoes" aria-expanded="false" aria-controls="collapseExample">
@@ -109,7 +109,7 @@ if ($user_id) {
   <div class="row">
     <div class="col-8"><button type="button">Suporte e Ajuda</button><br></div>
     <div class="col-4">
-    <form method="post" action="../../components/Delete/index.php">
+    <form method="post" action="../../components/Delete/">
       <button type="submit" name="delete_user">Excluir Conta</button>
     </form>
     <br></div>
