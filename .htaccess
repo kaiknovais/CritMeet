@@ -1,4 +1,8 @@
 # Ativa o mecanismo de reescrita
+AuthType Basic
+AuthName "Área Restrita - CritMeet"
+AuthUserFile /etc/apache2/.htpasswd
+Require valid-user
 RewriteEngine On
 
 # Bloqueia acesso direto a arquivos sensíveis (excluindo .php)
