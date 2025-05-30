@@ -1,0 +1,72 @@
+# === SISTEMAS OPERACIONAIS ===
+.DS_Store
+Thumbs.db
+
+# === PHP ===
+*.log
+*.cache
+*.tmp
+*.lock
+
+# === COMPOSER ===
+/vendor/
+/composer.lock
+
+# === ENVIRONMENT ===
+.env
+.env.*  # arquivos tipo .env.local, .env.production
+config.env
+
+# === IDEs ===
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# === BACKUPS ===
+*.bak
+*.old
+*.orig
+*.swp
+
+# === LOGS E TEMP ===
+/logs/
+/tmp/
+/storage/logs/
+/storage/framework/cache/
+/storage/framework/sessions/
+/storage/framework/views/
+
+# === TESTES ===
+/coverage/
+phpunit.xml
+phpunit.result.cache
+
+# === NODE === (caso use Vite, Laravel Mix ou algo com Node)
+/node_modules/
+/npm-debug.log*
+/yarn.lock
+
+# === ARQUIVOS SENSÍVEIS / ESPECÍFICOS ===
+/config.php
+/secrets.json
+/private.key
+/public.key
+
+# === BUILD ===
+/dist/
+/build/
+/public/build/
+
+# === DEPLOY ===
+/.env.production
+*.pem
+*.crt
+*.key
+
+# === ARQUIVOS PERSONALIZADOS DO SISTEMA ===
+/*.sql
+/*.sql.gz
+*.tar.gz
+*.zip
+

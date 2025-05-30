@@ -1,0 +1,15 @@
+# Ativa o mecanismo de reescrita
+RewriteEngine On
+
+# Bloqueia acesso direto a arquivos sensíveis (excluindo .php)
+<FilesMatch "\.(htaccess|htpasswd|ini|log|sql|conf|env)$">
+    Require all denied
+</FilesMatch>
+
+# Permite acesso direto a arquivos e diretórios existentes
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# Redireciona todas as outras requisições para router.php
+RewriteRule ^(.*)$ router.php [QSA,L]
