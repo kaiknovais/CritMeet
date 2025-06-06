@@ -1,5 +1,5 @@
 <?php
-include '../../config.php';
+require_once __DIR__ . '/../../config.php';
 session_start();
 
 // Verifica se o usuário está autenticado
