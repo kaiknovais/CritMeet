@@ -72,7 +72,6 @@ $stmt_creator->bind_result($creator_username, $creator_name);
 $stmt_creator->fetch();
 $stmt_creator->close();
 
-// ✅ CORREÇÃO 1: Função para atualizar nome do grupo
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['group_name'])) {
     $new_group_name = trim($_POST['group_name']);
     
@@ -93,7 +92,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['group_name'])) {
     }
 }
 
-// ✅ CORREÇÃO 2: Função para excluir o grupo (melhorada)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_group'])) {
     if ($user_id == $creator_id) {
         // Usar transação para garantir consistência
@@ -133,7 +131,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_group'])) {
     }
 }
 
-// ✅ CORREÇÃO 3: Função para promover um membro a administrador
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['promote_member_id'])) {
     $promote_member_id = intval($_POST['promote_member_id']);
     
@@ -165,7 +162,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['promote_member_id']))
     }
 }
 
-// ✅ CORREÇÃO 4: Função para rebaixar um administrador para membro
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['demote_member_id'])) {
     $demote_member_id = intval($_POST['demote_member_id']);
     
@@ -199,7 +195,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['demote_member_id'])) 
     }
 }
 
-// ✅ CORREÇÃO 5: Adicionar membro a partir do username
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['new_member_username'])) {
     $new_member_username = trim($_POST['new_member_username']);
     
@@ -245,7 +240,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['new_member_username']
     }
 }
 
-// ✅ CORREÇÃO 6: Remover membro
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['remove_member_id'])) {
     $remove_member_id = intval($_POST['remove_member_id']);
     
