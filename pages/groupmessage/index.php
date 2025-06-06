@@ -36,7 +36,7 @@ $stmt = $mysqli->prepare($query);
 $stmt->bind_param("i", $user_id);
 $stmt->execute();
 $result = $stmt->get_result();
-if ($result && $row = $result->get_result()) {
+if ($result && $row = $result->fetch_assoc()) { 
     $is_admin = $row['admin'] == 1;
 }
 $stmt->close();

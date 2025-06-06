@@ -12,7 +12,7 @@ if ($user_id) {
     $stmt->execute();
     $result = $stmt->get_result();
     if ($result && $row = $result->fetch_assoc()) {
-        $is_admin = $row['admin'] == 1; // Define como true se o usuário for admin
+        $is_admin = $row['admin'] == 1;
     }
     $stmt->close();
 }
@@ -72,133 +72,221 @@ $stmt_creator->bind_result($creator_username, $creator_name);
 $stmt_creator->fetch();
 $stmt_creator->close();
 
-// Função para excluir o grupo (somente para o criador)
+// ✅ CORREÇÃO 1: Função para atualizar nome do grupo
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['group_name'])) {
+    $new_group_name = trim($_POST['group_name']);
+    
+    if (!empty($new_group_name) && strlen($new_group_name) <= 100) {
+        $sql_update_name = "UPDATE chats SET name = ? WHERE id = ?";
+        $stmt_update = $mysqli->prepare($sql_update_name);
+        $stmt_update->bind_param("si", $new_group_name, $chat_id);
+        
+        if ($stmt_update->execute()) {
+            $group_name = $new_group_name; // Atualiza a variável local
+            echo "<script>alert('Nome do grupo atualizado com sucesso!');</script>";
+        } else {
+            echo "<script>alert('Erro ao atualizar o nome do grupo.');</script>";
+        }
+        $stmt_update->close();
+    } else {
+        echo "<script>alert('Nome do grupo inválido. Deve ter entre 1 e 100 caracteres.');</script>";
+    }
+}
+
+// ✅ CORREÇÃO 2: Função para excluir o grupo (melhorada)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_group'])) {
     if ($user_id == $creator_id) {
-        // Deletar o grupo e todos os membros
-        $sql_delete_group = "DELETE FROM chats WHERE id = ?";
-        $stmt_delete_group = $mysqli->prepare($sql_delete_group);
-        $stmt_delete_group->bind_param("i", $chat_id);
-        $stmt_delete_group->execute();
-
-        // Deletar os membros do grupo
-        $sql_delete_members = "DELETE FROM chat_members WHERE chat_id = ?";
-        $stmt_delete_members = $mysqli->prepare($sql_delete_members);
-        $stmt_delete_members->bind_param("i", $chat_id);
-        $stmt_delete_members->execute();
-
-        echo "<script>alert('Grupo excluído com sucesso.'); window.location.href='../chat/';</script>";
-        exit();
+        // Usar transação para garantir consistência
+        $mysqli->begin_transaction();
+        
+        try {
+            // Deletar mensagens do grupo
+            $sql_delete_messages = "DELETE FROM messages WHERE chat_id = ?";
+            $stmt_delete_messages = $mysqli->prepare($sql_delete_messages);
+            $stmt_delete_messages->bind_param("i", $chat_id);
+            $stmt_delete_messages->execute();
+            $stmt_delete_messages->close();
+            
+            // Deletar os membros do grupo
+            $sql_delete_members = "DELETE FROM chat_members WHERE chat_id = ?";
+            $stmt_delete_members = $mysqli->prepare($sql_delete_members);
+            $stmt_delete_members->bind_param("i", $chat_id);
+            $stmt_delete_members->execute();
+            $stmt_delete_members->close();
+            
+            // Deletar o grupo
+            $sql_delete_group = "DELETE FROM chats WHERE id = ?";
+            $stmt_delete_group = $mysqli->prepare($sql_delete_group);
+            $stmt_delete_group->bind_param("i", $chat_id);
+            $stmt_delete_group->execute();
+            $stmt_delete_group->close();
+            
+            $mysqli->commit();
+            echo "<script>alert('Grupo excluído com sucesso.'); window.location.href='../chat/';</script>";
+            exit();
+        } catch (Exception $e) {
+            $mysqli->rollback();
+            echo "<script>alert('Erro ao excluir o grupo. Tente novamente.');</script>";
+        }
     } else {
         echo "<script>alert('Somente o criador do grupo pode excluí-lo.');</script>";
     }
 }
 
-// Função para promover um membro a administrador
+// ✅ CORREÇÃO 3: Função para promover um membro a administrador
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['promote_member_id'])) {
     $promote_member_id = intval($_POST['promote_member_id']);
-
-    // Verifica se o usuário está no grupo
-    $sql_check_member = "SELECT id FROM chat_members WHERE chat_id = ? AND user_id = ?";
-    $stmt_check_member = $mysqli->prepare($sql_check_member);
-    $stmt_check_member->bind_param("ii", $chat_id, $promote_member_id);
-    $stmt_check_member->execute();
-    $stmt_check_member->store_result();
     
-    if ($stmt_check_member->num_rows > 0) {
-        // Promove o membro para administrador
-        $sql_promote_member = "UPDATE chat_members SET role = 'admin' WHERE chat_id = ? AND user_id = ?";
-        $stmt_promote_member = $mysqli->prepare($sql_promote_member);
-        $stmt_promote_member->bind_param("ii", $chat_id, $promote_member_id);
-        $stmt_promote_member->execute();
-        echo "<script>alert('Membro promovido a administrador.');</script>";
-    } else {
-        echo "<script>alert('O usuário não é membro deste grupo.');</script>";
+    if ($promote_member_id > 0) {
+        // Verifica se o usuário está no grupo
+        $sql_check_member = "SELECT role FROM chat_members WHERE chat_id = ? AND user_id = ?";
+        $stmt_check_member = $mysqli->prepare($sql_check_member);
+        $stmt_check_member->bind_param("ii", $chat_id, $promote_member_id);
+        $stmt_check_member->execute();
+        $stmt_check_member->bind_result($current_role);
+        $stmt_check_member->fetch();
+        $stmt_check_member->close();
+        
+        if ($current_role === 'member') {
+            // Promove o membro para administrador
+            $sql_promote_member = "UPDATE chat_members SET role = 'admin' WHERE chat_id = ? AND user_id = ?";
+            $stmt_promote_member = $mysqli->prepare($sql_promote_member);
+            $stmt_promote_member->bind_param("ii", $chat_id, $promote_member_id);
+            
+            if ($stmt_promote_member->execute()) {
+                echo "<script>alert('Membro promovido a administrador.');</script>";
+            } else {
+                echo "<script>alert('Erro ao promover o membro.');</script>";
+            }
+            $stmt_promote_member->close();
+        } else {
+            echo "<script>alert('O usuário não é membro deste grupo ou já é administrador.');</script>";
+        }
     }
 }
 
-// Função para rebaixar um administrador para membro
+// ✅ CORREÇÃO 4: Função para rebaixar um administrador para membro
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['demote_member_id'])) {
     $demote_member_id = intval($_POST['demote_member_id']);
-
-    // Verifica se o usuário está no grupo e é um administrador
-    $sql_check_admin = "SELECT role FROM chat_members WHERE chat_id = ? AND user_id = ? AND role = 'admin'";
-    $stmt_check_admin = $mysqli->prepare($sql_check_admin);
-    $stmt_check_admin->bind_param("ii", $chat_id, $demote_member_id);
-    $stmt_check_admin->execute();
-    $stmt_check_admin->store_result();
     
-    if ($stmt_check_admin->num_rows > 0) {
-        // Rebaixa o administrador para membro
-        $sql_demote_member = "UPDATE chat_members SET role = 'member' WHERE chat_id = ? AND user_id = ?";
-        $stmt_demote_member = $mysqli->prepare($sql_demote_member);
-        $stmt_demote_member->bind_param("ii", $chat_id, $demote_member_id);
-        $stmt_demote_member->execute();
-        echo "<script>alert('Administrador rebaixado para membro.');</script>";
+    if ($demote_member_id > 0 && $demote_member_id != $creator_id) {
+        // Verifica se o usuário está no grupo e é um administrador
+        $sql_check_admin = "SELECT role FROM chat_members WHERE chat_id = ? AND user_id = ?";
+        $stmt_check_admin = $mysqli->prepare($sql_check_admin);
+        $stmt_check_admin->bind_param("ii", $chat_id, $demote_member_id);
+        $stmt_check_admin->execute();
+        $stmt_check_admin->bind_result($current_role);
+        $stmt_check_admin->fetch();
+        $stmt_check_admin->close();
+        
+        if ($current_role === 'admin') {
+            // Rebaixa o administrador para membro
+            $sql_demote_member = "UPDATE chat_members SET role = 'member' WHERE chat_id = ? AND user_id = ?";
+            $stmt_demote_member = $mysqli->prepare($sql_demote_member);
+            $stmt_demote_member->bind_param("ii", $chat_id, $demote_member_id);
+            
+            if ($stmt_demote_member->execute()) {
+                echo "<script>alert('Administrador rebaixado para membro.');</script>";
+            } else {
+                echo "<script>alert('Erro ao rebaixar o administrador.');</script>";
+            }
+            $stmt_demote_member->close();
+        } else {
+            echo "<script>alert('O usuário não é um administrador neste grupo.');</script>";
+        }
     } else {
-        echo "<script>alert('O usuário não é um administrador neste grupo.');</script>";
+        echo "<script>alert('Não é possível rebaixar o criador do grupo.');</script>";
     }
 }
 
-// Adicionar membro a partir do username
+// ✅ CORREÇÃO 5: Adicionar membro a partir do username
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['new_member_username'])) {
     $new_member_username = trim($_POST['new_member_username']);
     
-    // Verifica se o username existe
-    $sql_check_user = "SELECT id FROM users WHERE username = ?";
-    $stmt_check_user = $mysqli->prepare($sql_check_user);
-    $stmt_check_user->bind_param("s", $new_member_username);
-    $stmt_check_user->execute();
-    $stmt_check_user->store_result();
-    
-    if ($stmt_check_user->num_rows > 0) {
+    if (!empty($new_member_username) && strlen($new_member_username) <= 50) {
+        // Verifica se o username existe
+        $sql_check_user = "SELECT id FROM users WHERE username = ?";
+        $stmt_check_user = $mysqli->prepare($sql_check_user);
+        $stmt_check_user->bind_param("s", $new_member_username);
+        $stmt_check_user->execute();
         $stmt_check_user->bind_result($new_member_id);
         $stmt_check_user->fetch();
+        $stmt_check_user->close();
         
-        // Verifica se o usuário já é membro do grupo
-        $sql_check_member = "SELECT id FROM chat_members WHERE chat_id = ? AND user_id = ?";
-        $stmt_check_member = $mysqli->prepare($sql_check_member);
-        $stmt_check_member->bind_param("ii", $chat_id, $new_member_id);
-        $stmt_check_member->execute();
-        $stmt_check_member->store_result();
-        
-        if ($stmt_check_member->num_rows == 0) {
-            // Adiciona o novo membro ao grupo
-            $sql_add_member = "INSERT INTO chat_members (chat_id, user_id, role) VALUES (?, ?, 'member')";
-            $stmt_add_member = $mysqli->prepare($sql_add_member);
-            $stmt_add_member->bind_param("ii", $chat_id, $new_member_id);
-            $stmt_add_member->execute();
-            echo "<script>alert('Novo membro adicionado com sucesso.');</script>";
+        if ($new_member_id) {
+            // Verifica se o usuário já é membro do grupo
+            $sql_check_member = "SELECT id FROM chat_members WHERE chat_id = ? AND user_id = ?";
+            $stmt_check_member = $mysqli->prepare($sql_check_member);
+            $stmt_check_member->bind_param("ii", $chat_id, $new_member_id);
+            $stmt_check_member->execute();
+            $stmt_check_member->store_result();
+            
+            if ($stmt_check_member->num_rows == 0) {
+                // Adiciona o novo membro ao grupo
+                $sql_add_member = "INSERT INTO chat_members (chat_id, user_id, role) VALUES (?, ?, 'member')";
+                $stmt_add_member = $mysqli->prepare($sql_add_member);
+                $stmt_add_member->bind_param("ii", $chat_id, $new_member_id);
+                
+                if ($stmt_add_member->execute()) {
+                    echo "<script>alert('Novo membro adicionado com sucesso.');</script>";
+                } else {
+                    echo "<script>alert('Erro ao adicionar o membro.');</script>";
+                }
+                $stmt_add_member->close();
+            } else {
+                echo "<script>alert('O usuário já é membro deste grupo.');</script>";
+            }
+            $stmt_check_member->close();
         } else {
-            echo "<script>alert('O usuário já é membro deste grupo.');</script>";
+            echo "<script>alert('Usuário não encontrado.');</script>";
         }
     } else {
-        echo "<script>alert('Usuário não encontrado.');</script>";
+        echo "<script>alert('Nome de usuário inválido.');</script>";
     }
 }
 
-// Remover membro
+// ✅ CORREÇÃO 6: Remover membro
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['remove_member_id'])) {
     $remove_member_id = intval($_POST['remove_member_id']);
     
-    // Verifica se o usuário a ser removido está no grupo
-    $sql_check_member = "SELECT id FROM chat_members WHERE chat_id = ? AND user_id = ?";
-    $stmt_check_member = $mysqli->prepare($sql_check_member);
-    $stmt_check_member->bind_param("ii", $chat_id, $remove_member_id);
-    $stmt_check_member->execute();
-    $stmt_check_member->store_result();
-    
-    if ($stmt_check_member->num_rows > 0) {
-        // Remover membro do grupo
-        $sql_remove_member = "DELETE FROM chat_members WHERE chat_id = ? AND user_id = ?";
-        $stmt_remove_member = $mysqli->prepare($sql_remove_member);
-        $stmt_remove_member->bind_param("ii", $chat_id, $remove_member_id);
-        $stmt_remove_member->execute();
-        echo "<script>alert('Membro removido com sucesso.');</script>";
+    if ($remove_member_id > 0 && $remove_member_id != $creator_id) {
+        // Verifica se o usuário a ser removido está no grupo
+        $sql_check_member = "SELECT id FROM chat_members WHERE chat_id = ? AND user_id = ?";
+        $stmt_check_member = $mysqli->prepare($sql_check_member);
+        $stmt_check_member->bind_param("ii", $chat_id, $remove_member_id);
+        $stmt_check_member->execute();
+        $stmt_check_member->store_result();
+        
+        if ($stmt_check_member->num_rows > 0) {
+            // Remover membro do grupo
+            $sql_remove_member = "DELETE FROM chat_members WHERE chat_id = ? AND user_id = ?";
+            $stmt_remove_member = $mysqli->prepare($sql_remove_member);
+            $stmt_remove_member->bind_param("ii", $chat_id, $remove_member_id);
+            
+            if ($stmt_remove_member->execute()) {
+                echo "<script>alert('Membro removido com sucesso.');</script>";
+            } else {
+                echo "<script>alert('Erro ao remover o membro.');</script>";
+            }
+            $stmt_remove_member->close();
+        } else {
+            echo "<script>alert('O usuário não é membro deste grupo.');</script>";
+        }
+        $stmt_check_member->close();
     } else {
-        echo "<script>alert('O usuário não é membro deste grupo.');</script>";
+        echo "<script>alert('Não é possível remover o criador do grupo.');</script>";
     }
 }
+
+// Recarregar a lista de membros após qualquer operação
+$sql_members = "SELECT u.id, u.username, u.name, cm.role 
+                FROM users u 
+                JOIN chat_members cm ON u.id = cm.user_id 
+                WHERE cm.chat_id = ?";
+$stmt = $mysqli->prepare($sql_members);
+$stmt->bind_param("i", $chat_id);
+$stmt->execute();
+$result_members = $stmt->get_result();
 ?>
 
 <!DOCTYPE html>
@@ -249,7 +337,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['remove_member_id'])) 
                 </ul>
 
                 <form class="d-flex" action="../friends" method="GET">
-                    <input class="form-control me-2" type="search" name="search" placeholder="Buscar amigos..." aria-label="Search">
+                    <input class="form-control me-2" type="search" name="search" placeholder="Buscar amigos..." aria-label="Search" maxlength="50">
                     <button class="btn btn-outline-success" type="submit">Buscar</button>
                 </form>
             </div>
@@ -261,7 +349,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['remove_member_id'])) 
         <form method="POST">
             <div class="mb-3">
                 <label for="group_name" class="form-label">Nome do Grupo</label>
-                <input type="text" class="form-control" name="group_name" value="<?php echo htmlspecialchars($group_name); ?>" required>
+                <input type="text" class="form-control" name="group_name" value="<?php echo htmlspecialchars($group_name); ?>" maxlength="100" required>
             </div>
             <button type="submit" class="btn btn-primary">Atualizar Nome</button>
         </form>
@@ -269,7 +357,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['remove_member_id'])) 
         <h3>Adicionar Novo Membro</h3>
         <form method="POST">
             <div class="mb-3">
-                <input type="text" name="new_member_username" class="form-control" placeholder="Username do Usuário" required>
+                <input type="text" name="new_member_username" class="form-control" placeholder="Username do Usuário" maxlength="50" required>
             </div>
             <button type="submit" class="btn btn-success">Adicionar</button>
         </form>
@@ -280,7 +368,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['remove_member_id'])) 
         </div>
 
         <?php if ($user_id == $creator_id): ?>
-        <form method="POST">
+        <form method="POST" onsubmit="return confirm('Tem certeza que deseja excluir este grupo? Esta ação não pode ser desfeita.');">
             <button type="submit" name="delete_group" class="btn btn-danger mb-3">Excluir Grupo</button>
         </form>
         <?php endif; ?>
@@ -303,18 +391,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['remove_member_id'])) 
                     <?php if ($row['id'] != $creator_id): ?>
                         <?php if ($row['role'] != 'admin'): ?>
                             <form method="POST" style="display: inline;">
-                                <input type="hidden" name="promote_member_id" value="<?php echo $row['id']; ?>">
+                                <input type="hidden" name="promote_member_id" value="<?php echo intval($row['id']); ?>">
                                 <button type="submit" class="btn btn-warning btn-sm">Promover</button>
                             </form>
                         <?php else: ?>
                             <form method="POST" style="display: inline;">
-                                <input type="hidden" name="demote_member_id" value="<?php echo $row['id']; ?>">
+                                <input type="hidden" name="demote_member_id" value="<?php echo intval($row['id']); ?>">
                                 <button type="submit" class="btn btn-secondary btn-sm">Rebaixar</button>
                             </form>
                         <?php endif; ?>
 
-                        <form method="POST" style="display: inline;">
-                            <input type="hidden" name="remove_member_id" value="<?php echo $row['id']; ?>">
+                        <form method="POST" style="display: inline;" onsubmit="return confirm('Tem certeza que deseja remover este membro?');">
+                            <input type="hidden" name="remove_member_id" value="<?php echo intval($row['id']); ?>">
                             <button type="submit" class="btn btn-danger btn-sm">Remover</button>
                         </form>
                     <?php endif; ?>
