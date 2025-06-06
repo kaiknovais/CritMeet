@@ -12,7 +12,7 @@ if ($user_id) {
     $stmt->execute();
     $result = $stmt->get_result();
     if ($result && $row = $result->fetch_assoc()) {
-        $is_admin = $row['admin'] == 1; // Define como true se o usuário for admin
+        $is_admin = $row['admin'] == 1;
     }
     $stmt->close();
 }
@@ -40,59 +40,85 @@ $stmt_friend->bind_result($friend_username);
 $stmt_friend->fetch();
 $stmt_friend->close();
 
-// Verificar se já existe um chat entre o usuário e o amigo
-$sql_check_chat = "SELECT cm.chat_id 
-                   FROM chat_members cm 
-                   JOIN chats c ON cm.chat_id = c.id 
-                   WHERE (cm.user_id = ? AND cm.chat_id IN 
-                          (SELECT chat_id FROM chat_members WHERE user_id = ?)) 
-                   OR (cm.user_id = ? AND cm.chat_id IN 
-                       (SELECT chat_id FROM chat_members WHERE user_id = ?))";
-$stmt = $mysqli->prepare($sql_check_chat);
-$stmt->bind_param("iiii", $user_id, $friend_id, $friend_id, $user_id);
+// Encontrar ou criar chat
+$sql_find_chat = "SELECT DISTINCT c.id as chat_id 
+                  FROM chats c
+                  JOIN chat_members cm1 ON c.id = cm1.chat_id
+                  JOIN chat_members cm2 ON c.id = cm2.chat_id
+                  WHERE c.is_group = 0 
+                  AND cm1.user_id = ? 
+                  AND cm2.user_id = ?";
+
+$stmt = $mysqli->prepare($sql_find_chat);
+$stmt->bind_param("ii", $user_id, $friend_id);
 $stmt->execute();
 $result = $stmt->get_result();
 
 if ($result->num_rows === 0) {
+    // Criar novo chat
     $sql_create_chat = "INSERT INTO chats (is_group) VALUES (0)";
     $stmt_create = $mysqli->prepare($sql_create_chat);
     $stmt_create->execute();
     $chat_id = $stmt_create->insert_id;
     
-    $sql_add_user = "INSERT INTO chat_members (chat_id, user_id) VALUES (?, ?)";
-    $stmt_add_user = $mysqli->prepare($sql_add_user);
+    // Adicionar membros
+    $sql_add_member = "INSERT INTO chat_members (chat_id, user_id) VALUES (?, ?)";
+    $stmt_add = $mysqli->prepare($sql_add_member);
     
-    $stmt_add_user->bind_param("ii", $chat_id, $user_id);
-    $stmt_add_user->execute();
-
-    $stmt_add_user->bind_param("ii", $chat_id, $friend_id);
-    $stmt_add_user->execute();
+    $stmt_add->bind_param("ii", $chat_id, $user_id);
+    $stmt_add->execute();
+    
+    $stmt_add->bind_param("ii", $chat_id, $friend_id);
+    $stmt_add->execute();
 } else {
     $row = $result->fetch_assoc();
     $chat_id = $row['chat_id'];
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['content'])) {
-    $content = trim($_POST['content']);
-
+// Se for requisição AJAX para enviar mensagem
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'send_message') {
+    $content = trim($_POST['content'] ?? '');
+    
     if (!empty($content)) {
         $sql_insert = "INSERT INTO messages (chat_id, sender_id, content) VALUES (?, ?, ?)";
         $stmt_insert = $mysqli->prepare($sql_insert);
         $stmt_insert->bind_param("iis", $chat_id, $user_id, $content);
-        $stmt_insert->execute();
+        
+        if ($stmt_insert->execute()) {
+            echo json_encode(['success' => true]);
+        } else {
+            echo json_encode(['success' => false]);
+        }
     }
+    exit();
 }
 
-// Consultar mensagens e os nomes de usuário associados ao sender_id
-$sql_messages = "SELECT m.sender_id, m.content, m.timestamp, u.username 
-                 FROM messages m
-                 JOIN users u ON m.sender_id = u.id 
-                 WHERE m.chat_id = ? 
-                 ORDER BY m.timestamp ASC";
-$stmt_messages = $mysqli->prepare($sql_messages);
-$stmt_messages->bind_param("i", $chat_id);
-$stmt_messages->execute();
-$result_messages = $stmt_messages->get_result();
+// Se for requisição AJAX para buscar mensagens
+if (isset($_GET['action']) && $_GET['action'] === 'get_messages') {
+    $sql_messages = "SELECT m.sender_id, m.content, m.timestamp, u.username 
+                     FROM messages m
+                     JOIN users u ON m.sender_id = u.id 
+                     WHERE m.chat_id = ? 
+                     ORDER BY m.timestamp ASC";
+    
+    $stmt_messages = $mysqli->prepare($sql_messages);
+    $stmt_messages->bind_param("i", $chat_id);
+    $stmt_messages->execute();
+    $result_messages = $stmt_messages->get_result();
+    
+    $messages = [];
+    while ($row = $result_messages->fetch_assoc()) {
+        $messages[] = [
+            'username' => $row['username'],
+            'content' => $row['content'],
+            'timestamp' => $row['timestamp'],
+            'is_own' => $row['sender_id'] == $user_id
+        ];
+    }
+    
+    echo json_encode($messages);
+    exit();
+}
 ?>
 
 <!DOCTYPE html>
@@ -104,28 +130,74 @@ $result_messages = $stmt_messages->get_result();
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <link rel="stylesheet" type="text/css" href="../../assets/mobile.css" media="screen and (max-width: 600px)">
     <link rel="stylesheet" type="text/css" href="../../assets/desktop.css" media="screen and (min-width: 601px)">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Agdasima:wght@400;700&display=swap" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .chat-container {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin-bottom: 20px;
+            background: #f8f9fa;
+        }
+        
+        .message {
+            margin-bottom: 10px;
+            padding: 8px 12px;
+            border-radius: 10px;
+            max-width: 70%;
+        }
+        
+        .message.own {
+            background-color: #007bff;
+            color: white;
+            margin-left: auto;
+            text-align: right;
+        }
+        
+        .message.other {
+            background-color: #e9ecef;
+            color: #333;
+        }
+        
+        .message-form {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .message-input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        
+        .message-button {
+            padding: 10px 20px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+    </style>
 </head>
 <body>
     <?php include 'header.php'; ?>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
     <nav class="navbar navbar-expand-lg bg-body-tertiary" data-bs-theme="dark">
         <div class="container-fluid">
             <a class="navbar-brand" href="../homepage/">CritMeet</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarSupportedContent">
                 <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                    <li class="nav-item"><a class="nav-link active" href="../homepage/">Home</a></li>
+                    <li class="nav-item"><a class="nav-link" href="../homepage/">Home</a></li>
                     <li class="nav-item"><a class="nav-link" href="../Profile/">Meu Perfil</a></li>
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
                             Mais...
                         </a>
                         <ul class="dropdown-menu">
@@ -140,89 +212,120 @@ $result_messages = $stmt_messages->get_result();
                         </ul>
                     </li>
                 </ul>
-
-                <form class="d-flex" action="../friends" method="GET">
-                    <input class="form-control me-2" type="search" name="search" placeholder="Buscar amigos..." aria-label="Search">
-                    <button class="btn btn-outline-success" type="submit">Buscar</button>
-                </form>
             </div>
         </div>
     </nav>
 
-<h2>Chat com <?php echo htmlspecialchars($friend_username); ?></h2>
+    <div class="container mt-4">
+        <h2>Chat com <?php echo htmlspecialchars($friend_username); ?></h2>
+        
+        <!-- Container das mensagens -->
+        <div id="messages-container" class="chat-container">
+            <!-- Mensagens serão carregadas aqui -->
+        </div>
 
-<!-- Exibir mensagens -->
- 
-<div class="container mt-4 chat-container">
-    <div class="row">
-        <!-- Mostrar mensagens -->
-        <ul id="messages-list" class="chat-messages">
-            <?php while ($row = $result_messages->fetch_assoc()): ?>
-                <?php
-                // Formatando o timestamp para exibir apenas a hora
-                $formatted_time = date('H:i', strtotime($row['timestamp']));
-                ?>
-                <li>
-                    <strong><?php echo htmlspecialchars($row['username']); ?>:</strong>
-                    <?php echo htmlspecialchars($row['content']); ?>
-                    <br>
-                    <small><?php echo $formatted_time; ?></small>
-                </li>
-            <?php endwhile; ?>
-        </ul>
+        <!-- Formulário para enviar mensagem -->
+        <form id="message-form" class="message-form">
+            <input type="text" name="content" class="message-input" placeholder="Digite sua mensagem..." autocomplete="off" required >
+            <button type="submit" class="message-button">Enviar</button>
+        </form>
     </div>
-</div>
-
-<!-- Enviar mensagem -->
-<form id="message-form" class="message-form" method="POST">
-    <textarea name="content" class="message-input" placeholder="Digite sua mensagem" required></textarea>
-    <button type="submit" class="message-button">Enviar</button>
-</form>
-
 
 <script>
-// Função para carregar as mensagens em tempo real
+let lastMessageCount = 0;
+
+// Função para carregar mensagens
 function loadMessages() {
     $.ajax({
-        url: '../fetchmessage/', // Script PHP para buscar as mensagens
+        url: window.location.href,
         type: 'GET',
-        data: { chat_id: <?php echo $chat_id; ?> },
-        success: function(data) {
-            $('#messages').html(data);
+        data: { 
+            action: 'get_messages',
+            friend_id: <?php echo $friend_id; ?>
         },
-        error: function() {
-            alert('Erro ao carregar mensagens.');
+        dataType: 'json',
+        success: function(messages) {
+            if (messages.length !== lastMessageCount) {
+                displayMessages(messages);
+                lastMessageCount = messages.length;
+                scrollToBottom();
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('Erro ao carregar mensagens:', error);
         }
     });
 }
 
-// Enviar a mensagem via AJAX
-$('#chatForm').on('submit', function(e) {
+// Função para exibir mensagens
+function displayMessages(messages) {
+    const container = $('#messages-container');
+    container.empty();
+    
+    messages.forEach(function(message) {
+        const messageClass = message.is_own ? 'message own' : 'message other';
+        const timestamp = new Date(message.timestamp).toLocaleTimeString('pt-BR', {
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+        
+        const messageHtml = `
+            <div class="${messageClass}">
+                <div><strong>${message.username}:</strong> ${message.content}</div>
+                <small>${timestamp}</small>
+            </div>
+        `;
+        
+        container.append(messageHtml);
+    });
+}
+
+// Função para rolar para o final
+function scrollToBottom() {
+    const container = $('#messages-container');
+    container.scrollTop(container[0].scrollHeight);
+}
+
+// Enviar mensagem
+$('#message-form').on('submit', function(e) {
     e.preventDefault();
     
-    var content = $("textarea[name='content']").val();
+    const content = $('input[name="content"]').val().trim();
     
-    $.ajax({
-        url: '', // Enviar para o mesmo script
-        type: 'POST',
-        data: { content: content },
-        success: function() {
-            $("textarea[name='content']").val('');
-            loadMessages(); // Recarregar as mensagens
-        },
-        error: function() {
-            alert('Erro ao enviar mensagem.');
-        }
-    });
+    if (content) {
+        $.ajax({
+            url: window.location.href,
+            type: 'POST',
+            data: { 
+                action: 'send_message',
+                content: content,
+                friend_id: <?php echo $friend_id; ?>
+            },
+            dataType: 'json',
+            success: function(response) {
+                if (response.success) {
+                    $('input[name="content"]').val('');
+                    loadMessages(); // Recarregar mensagens imediatamente
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('Erro ao enviar mensagem:', error);
+                alert('Erro ao enviar mensagem');
+            }
+        });
+    }
 });
 
-// Carregar as mensagens de forma contínua
-setInterval(loadMessages, 1000); // Atualiza a cada 1 segundo
-
-// Inicialmente carrega as mensagens
+// Carregar mensagens inicialmente
 loadMessages();
+
+// Atualizar mensagens a cada 2 segundos
+setInterval(loadMessages, 2000);
+
+// Focar no campo de entrada
+$('input[name="content"]').focus();
 </script>
 
-<?php include 'footer.php'; ?>
+    <?php include 'footer.php'; ?>
 </body>
 </html>

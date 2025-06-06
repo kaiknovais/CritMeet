@@ -11,7 +11,7 @@ $user_id = $_SESSION['user_id'];
 $chat_id = $_GET['chat_id'] ?? null;
 
 if (!$chat_id) {
-    echo "<script>alert('ID do grupo não fornecido.'); window.location.href='../group/';</script>";
+    echo "<script>alert('ID do grupo não fornecido.'); window.location.href='../chat/';</script>";
     exit();
 }
 
@@ -25,33 +25,75 @@ $stmt->fetch();
 $stmt->close();
 
 if (!$role) {
-    echo "<script>alert('Você não é membro deste grupo.'); window.location.href='../group/';</script>";
+    echo "<script>alert('Você não é membro deste grupo.'); window.location.href='../chat/';</script>";
     exit();
 }
 
-// Enviar mensagem
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['message'])) {
-    $message = trim($_POST['message']);
+// Verificar se é admin
+$is_admin = false;
+$query = "SELECT admin FROM users WHERE id = ?";
+$stmt = $mysqli->prepare($query);
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$result = $stmt->get_result();
+if ($result && $row = $result->get_result()) {
+    $is_admin = $row['admin'] == 1;
+}
+$stmt->close();
+
+// Obter nome do grupo
+$sql_group_name = "SELECT name FROM chats WHERE id = ?";
+$stmt = $mysqli->prepare($sql_group_name);
+$stmt->bind_param("i", $chat_id);
+$stmt->execute();
+$stmt->bind_result($group_name);
+$stmt->fetch();
+$stmt->close();
+
+// Se for requisição AJAX para enviar mensagem
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'send_message') {
+    $message = trim($_POST['message'] ?? '');
 
     if (!empty($message)) {
         $sql_send_message = "INSERT INTO messages (chat_id, sender_id, content) VALUES (?, ?, ?)";
         $stmt = $mysqli->prepare($sql_send_message);
         $stmt->bind_param("iis", $chat_id, $user_id, $message);
-        $stmt->execute();
+        
+        if ($stmt->execute()) {
+            echo json_encode(['success' => true]);
+        } else {
+            echo json_encode(['success' => false]);
+        }
     }
+    exit();
 }
 
-// Recuperar mensagens
-$sql_messages = "SELECT m.id, m.sender_id, m.content, m.timestamp, u.username 
-                 FROM messages m 
-                 JOIN users u ON m.sender_id = u.id 
-                 WHERE m.chat_id = ? 
-                 ORDER BY m.timestamp ASC";
-$stmt = $mysqli->prepare($sql_messages);
-$stmt->bind_param("i", $chat_id);
-$stmt->execute();
-$result_messages = $stmt->get_result();
+// Se for requisição AJAX para buscar mensagens
+if (isset($_GET['action']) && $_GET['action'] === 'get_messages') {
+    $sql_messages = "SELECT m.id, m.sender_id, m.content, m.timestamp, u.username 
+                     FROM messages m 
+                     JOIN users u ON m.sender_id = u.id 
+                     WHERE m.chat_id = ? 
+                     ORDER BY m.timestamp ASC";
+    
+    $stmt = $mysqli->prepare($sql_messages);
+    $stmt->bind_param("i", $chat_id);
+    $stmt->execute();
+    $result_messages = $stmt->get_result();
 
+    $messages = [];
+    while ($row = $result_messages->fetch_assoc()) {
+        $messages[] = [
+            "username" => $row['username'],
+            "content" => $row['content'],
+            "timestamp" => $row['timestamp'],
+            "is_own" => $row['sender_id'] == $user_id
+        ];
+    }
+
+    echo json_encode($messages);
+    exit();
+}
 ?>
 
 <!DOCTYPE html>
@@ -59,33 +101,86 @@ $result_messages = $stmt->get_result();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chat do Grupo</title>
+    <title>Chat do Grupo - <?php echo htmlspecialchars($group_name); ?></title>
     <link rel="stylesheet" type="text/css" href="../../assets/mobile.css" media="screen and (max-width: 600px)">
     <link rel="stylesheet" type="text/css" href="../../assets/desktop.css" media="screen and (min-width: 601px)">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Agdasima:wght@400;700&display=swap" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-    <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/main.min.css" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        .chat-container {
+            max-height: 500px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin-bottom: 20px;
+            background: #f8f9fa;
+        }
+        
+        .message {
+            margin-bottom: 15px;
+            padding: 10px 15px;
+            border-radius: 10px;
+            max-width: 80%;
+        }
+        
+        .message.own {
+            background-color: #007bff;
+            color: white;
+            margin-left: auto;
+            text-align: right;
+        }
+        
+        .message.other {
+            background-color: #e9ecef;
+            color: #333;
+        }
+        
+        .message-form {
+            display: flex;
+            gap: 10px;
+            padding: 15px;
+            background: white;
+            border-top: 1px solid #ddd;
+        }
+        
+        .message-input {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 25px;
+            outline: none;
+        }
+        
+        .message-button {
+            padding: 12px 25px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+        }
+        
+        .message-button:hover {
+            background: #0056b3;
+        }
+    </style>
 </head>
 <body>
     <?php include 'header.php'; ?>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
     <nav class="navbar navbar-expand-lg bg-body-tertiary" data-bs-theme="dark">
         <div class="container-fluid">
             <a class="navbar-brand" href="../homepage/">CritMeet</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarSupportedContent">
                 <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                    <li class="nav-item"><a class="nav-link active" href="../homepage/">Home</a></li>
+                    <li class="nav-item"><a class="nav-link" href="../homepage/">Home</a></li>
                     <li class="nav-item"><a class="nav-link" href="../Profile/">Meu Perfil</a></li>
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
                             Mais...
                         </a>
                         <ul class="dropdown-menu">
@@ -100,68 +195,120 @@ $result_messages = $stmt->get_result();
                         </ul>
                     </li>
                 </ul>
-
-                <form class="d-flex" action="../friends" method="GET">
-                    <input class="form-control me-2" type="search" name="search" placeholder="Buscar amigos..." aria-label="Search">
-                    <button class="btn btn-outline-success" type="submit">Buscar</button>
-                </form>
             </div>
         </div>
     </nav>
-<h3>Chat do Grupo</h3>
 
-<div class="container mt-4 chat-container">
-    <div class="row">
-        <!-- Mostrar mensagens -->
-        <ul id="messages-list" class="chat-messages">
-            <?php while ($row = $result_messages->fetch_assoc()): ?>
-                <li>
-                    <strong><?php echo htmlspecialchars($row['username']); ?>:</strong>
-                    <?php echo htmlspecialchars($row['content']); ?>
-                    <br>
-                    <small><?php echo $row['timestamp']; ?></small>
-                </li>
-            <?php endwhile; ?>
-        </ul>
+    <div class="container mt-4">
+        <h3>Chat do Grupo: <?php echo htmlspecialchars($group_name); ?></h3>
+        
+        <!-- Container das mensagens -->
+        <div id="messages-container" class="chat-container">
+            <!-- Mensagens serão carregadas aqui -->
+        </div>
+
+        <!-- Formulário para enviar mensagem -->
+        <form id="message-form" class="message-form">
+            <input type="text" name="message" class="message-input" placeholder="Digite sua mensagem..." autocomplete="off" required>
+            <button type="submit" class="message-button">Enviar</button>
+        </form>
     </div>
-</div>
-<!-- Enviar mensagem -->
-<form id="message-form" class="message-form" method="POST">
-    <textarea name="message" class="message-input" placeholder="Digite sua mensagem" required></textarea>
-    <button type="submit" class="message-button">Enviar</button>
-</form>
 
-
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script>
-// Função para carregar novas mensagens
-function loadMessages() {
-    $.get('../groupfetch/?chat_id=<?php echo $chat_id; ?>', function(data) {
-        var messages = JSON.parse(data);
-        var messagesList = $('#messages-list');
-        messagesList.empty(); // Limpar mensagens antigas
+let lastMessageCount = 0;
 
-        // Adicionar as novas mensagens
-        messages.forEach(function(message) {
-            messagesList.append('<li><strong>' + message.username + ':</strong> ' + message.content + '<br><small>' + message.timestamp + '</small></li>');
-        });
+// Função para carregar mensagens
+function loadMessages() {
+    $.ajax({
+        url: window.location.href,
+        type: 'GET',
+        data: { 
+            action: 'get_messages',
+            chat_id: <?php echo $chat_id; ?>
+        },
+        dataType: 'json',
+        success: function(messages) {
+            if (messages.length !== lastMessageCount) {
+                displayMessages(messages);
+                lastMessageCount = messages.length;
+                scrollToBottom();
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('Erro ao carregar mensagens:', error);
+        }
     });
 }
 
-// Enviar mensagem via AJAX
-$('#message-form').submit(function(event) {
-    event.preventDefault(); // Impede o envio padrão do formulário
-
-    var message = $('textarea[name="message"]').val();
-    $.post('../groupmessage/?chat_id=<?php echo $chat_id; ?>', { message: message }, function() {
-        loadMessages(); // Carregar novas mensagens após enviar
-        $('textarea[name="message"]').val(''); // Limpar campo de texto
+// Função para exibir mensagens
+function displayMessages(messages) {
+    const container = $('#messages-container');
+    container.empty();
+    
+    messages.forEach(function(message) {
+        const messageClass = message.is_own ? 'message own' : 'message other';
+        const timestamp = new Date(message.timestamp).toLocaleTimeString('pt-BR', {
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+        
+        const messageHtml = `
+            <div class="${messageClass}">
+                <div><strong>${message.username}:</strong> ${message.content}</div>
+                <small>${timestamp}</small>
+            </div>
+        `;
+        
+        container.append(messageHtml);
     });
+}
+
+// Função para rolar para o final
+function scrollToBottom() {
+    const container = $('#messages-container');
+    container.scrollTop(container[0].scrollHeight);
+}
+
+// Enviar mensagem
+$('#message-form').on('submit', function(e) {
+    e.preventDefault();
+    
+    const message = $('input[name="message"]').val().trim();
+    
+    if (message) {
+        $.ajax({
+            url: window.location.href,
+            type: 'POST',
+            data: { 
+                action: 'send_message',
+                message: message,
+                chat_id: <?php echo $chat_id; ?>
+            },
+            dataType: 'json',
+            success: function(response) {
+                if (response.success) {
+                    $('input[name="message"]').val('');
+                    loadMessages(); // Recarregar mensagens imediatamente
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('Erro ao enviar mensagem:', error);
+                alert('Erro ao enviar mensagem');
+            }
+        });
+    }
 });
 
-// Carregar mensagens a cada 5 segundos
-setInterval(loadMessages, 1000);
+// Carregar mensagens inicialmente
+loadMessages();
+
+// Atualizar mensagens a cada 2 segundos
+setInterval(loadMessages, 2000);
+
+// Focar no campo de entrada
+$('input[name="message"]').focus();
 </script>
-<?php include 'footer.php'; ?>
+
+    <?php include 'footer.php'; ?>
 </body>
 </html>
