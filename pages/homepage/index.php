@@ -95,6 +95,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reject_friend'])) {
     $stmt_reject->close();
 }
 ?>
+<?php
+    // Obtém o IP do usuário
+    $ip = file_get_contents('https://api64.ipify.org');
+
+    
+    // Faz a requisição para a API de geolocalização
+    $api_url = "http://ip-api.com/json/{$ip}?fields=status,country,regionName,city,lat,lon,query";
+    $response = file_get_contents($api_url);
+    $data = json_decode($response, true);
+?>
 
 <!DOCTYPE html>
 <html lang="pt-br">
@@ -422,6 +432,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reject_friend'])) {
             // Por exemplo, fazer uma requisição AJAX para buscar novas mensagens
         }, 30000); // Atualiza a cada 30 segundos
     </script>
+        <div class="container">
+        <h2>Sua localização</h2>
+        <?php if ($data['status'] === 'success') { ?>
+            <p><strong>País:</strong> <?php echo $data['country']; ?></p>
+            <p><strong>Estado:</strong> <?php echo $data['regionName']; ?></p>
+            <p><strong>Cidade:</strong> <?php echo $data['city']; ?></p>
+            <iframe 
+                width="100%" 
+                height="300" 
+                src="https://maps.google.com/maps?q=<?php echo $data['lat']; ?>,<?php echo $data['lon']; ?>&z=12&output=embed">
+            </iframe>
+        <?php } else { ?>
+            <p>Não foi possível obter a localização.</p>
+        <?php } ?>
+    </div>
 
     <?php include 'footer.php'; ?>
 </body>
