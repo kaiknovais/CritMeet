@@ -125,13 +125,15 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_messages') {
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chat com <?php echo htmlspecialchars($friend_username); ?></title>
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <link rel="stylesheet" type="text/css" href="../../assets/mobile.css" media="screen and (max-width: 600px)">
-    <link rel="stylesheet" type="text/css" href="../../assets/desktop.css" media="screen and (min-width: 601px)">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="../../../assets/mobile.css" media="screen and (max-width: 600px)">
+    <link rel="stylesheet" href="../../../assets/desktop.css" media="screen and (min-width: 601px)">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+</head>
+<body>
+     <style>
         .chat-container {
             max-height: 400px;
             overflow-y: auto;
@@ -187,34 +189,33 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_messages') {
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
     <nav class="navbar navbar-expand-lg bg-body-tertiary" data-bs-theme="dark">
-        <div class="container-fluid">
-            <a class="navbar-brand" href="../homepage/">CritMeet</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarSupportedContent">
-                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                    <li class="nav-item"><a class="nav-link" href="../homepage/">Home</a></li>
-                    <li class="nav-item"><a class="nav-link" href="../Profile/">Meu Perfil</a></li>
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
-                            Mais...
-                        </a>
-                        <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="../settings/">Configurações</a></li>
-                            <li><a class="dropdown-item" href="../friends/">Conexões</a></li>
-                            <li><a class="dropdown-item" href="../chat/">Chat</a></li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="../../components/Logout/">Logout</a></li>
-                            <?php if ($is_admin): ?>
-                                <li><a class="dropdown-item text-danger" href="../admin/">Lista de Usuários</a></li>
-                            <?php endif; ?>
-                        </ul>
-                    </li>
-                </ul>
-            </div>
+    <div class="container-fluid">
+        <a class="navbar-brand" href="../homepage/">CritMeet</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarSupportedContent">
+            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                <li class="nav-item"><a class="nav-link " href="../homepage/">Home</a></li>
+                <li class="nav-item"><a class="nav-link" href="../Profile/">Meu Perfil</a></li>
+                <li class="nav-item"><a class="nav-link" href="../rpg_info">RPG</a></li>
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle active" href="#" data-bs-toggle="dropdown">Mais...</a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="../settings/">Configurações</a></li>
+                        <li><a class="dropdown-item" href="../friends/">Conexões</a></li>
+                        <li><a class="dropdown-item" href="../chat/">Chat</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="../../components/Logout/">Logout</a></li>
+                        <?php if ($is_admin): ?>
+                            <li><a class="dropdown-item text-danger" href="../admin/">Lista de Usuários</a></li>
+                        <?php endif; ?>
+                    </ul>
+                </li>
+            </ul>
         </div>
-    </nav>
+    </div>
+</nav>
 
     <div class="container mt-4">
         <h2>Chat com <?php echo htmlspecialchars($friend_username); ?></h2>

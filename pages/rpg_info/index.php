@@ -40,9 +40,9 @@ if ($user_id) {
         </button>
         <div class="collapse navbar-collapse" id="navbarSupportedContent">
             <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                <li class="nav-item"><a class="nav-link" href="../homepage/">Home</a></li>
+                <li class="nav-item"><a class="nav-link " href="../homepage/">Home</a></li>
                 <li class="nav-item"><a class="nav-link" href="../Profile/">Meu Perfil</a></li>
-                <li class="nav-item"><a class="nav-link active" href="#">RPG</a></li>
+                <li class="nav-item"><a class="nav-link active" href="../rpg_info">RPG</a></li>
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Mais...</a>
                     <ul class="dropdown-menu">

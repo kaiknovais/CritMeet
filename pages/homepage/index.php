@@ -5,6 +5,7 @@ require_once __DIR__ . '/../../components/FriendRequest/index.php';
 require_once __DIR__ . '/../../components/RecentMessages/index.php';
 require_once __DIR__ . '/../../components/Schedule/index.php';
 
+
 session_start();
 
 $user_id = $_SESSION['user_id'] ?? null;
@@ -60,15 +61,11 @@ $scheduled_sessions = $schedule->getUpcomingSessions(); // Changed from getSched
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CritMeet - Página Inicial</title>
-    <link rel="stylesheet" type="text/css" href="../../../assets/mobile.css" media="screen and (max-width: 600px)">
-    <link rel="stylesheet" type="text/css" href="../../../assets/desktop.css" media="screen and (min-width: 601px)">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Agdasima:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../../../assets/mobile.css" media="screen and (max-width: 600px)">
+    <link rel="stylesheet" href="../../../assets/desktop.css" media="screen and (min-width: 601px)">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-    <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/main.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+</head>
     
     <style>
         .notification-badge {
@@ -96,39 +93,33 @@ $scheduled_sessions = $schedule->getUpcomingSessions(); // Changed from getSched
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
     <nav class="navbar navbar-expand-lg bg-body-tertiary" data-bs-theme="dark">
-        <div class="container-fluid">
-            <a class="navbar-brand" href="../homepage/">CritMeet</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarSupportedContent">
-                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                    <li class="nav-item"><a class="nav-link active" href="../homepage/">Home</a></li>
-                    <li class="nav-item"><a class="nav-link" href="../Profile/">Meu Perfil</a></li>
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                            Mais...
-                        </a>
-                        <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="../settings/">Configurações</a></li>
-                            <li><a class="dropdown-item" href="../friends/">Conexões</a></li>
-                            <li><a class="dropdown-item" href="../chat/">Chat</a></li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="../../components/Logout/">Logout</a></li>
-                            <?php if ($is_admin): ?>
-                                <li><a class="dropdown-item text-danger" href="../admin/">Lista de Usuários</a></li>
-                            <?php endif; ?>
-                        </ul>
-                    </li>
-                </ul>
-
-                <form class="d-flex" action="../friends" method="GET">
-                    <input class="form-control me-2" type="search" name="search" placeholder="Buscar amigos..." aria-label="Search">
-                    <button class="btn btn-outline-success" type="submit">Buscar</button>
-                </form>
-            </div>
+    <div class="container-fluid">
+        <a class="navbar-brand" href="../homepage/">CritMeet</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarSupportedContent">
+            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                <li class="nav-item"><a class="nav-link active" href="../homepage/">Home</a></li>
+                <li class="nav-item"><a class="nav-link" href="../Profile/">Meu Perfil</a></li>
+                <li class="nav-item"><a class="nav-link" href="../rpg_info">RPG</a></li>
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Mais...</a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="../settings/">Configurações</a></li>
+                        <li><a class="dropdown-item" href="../friends/">Conexões</a></li>
+                        <li><a class="dropdown-item" href="../chat/">Chat</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="../../components/Logout/">Logout</a></li>
+                        <?php if ($is_admin): ?>
+                            <li><a class="dropdown-item text-danger" href="../admin/">Lista de Usuários</a></li>
+                        <?php endif; ?>
+                    </ul>
+                </li>
+            </ul>
         </div>
-    </nav>
+    </div>
+</nav>
 
     <div class="container mt-4">
         <!-- Botões de Toggle -->
@@ -150,11 +141,11 @@ $scheduled_sessions = $schedule->getUpcomingSessions(); // Changed from getSched
                 </button>
             </div>
             <div class="col-md-3">
-                <button type="button" class="btn btn-success w-100 notification-badge" data-bs-toggle="collapse" data-bs-target="#scheduledSessions" aria-expanded="false" aria-controls="scheduledSessions">
+            <button type="button" class="btn btn-success w-100 notification-badge" data-bs-toggle="collapse" data-bs-target="#scheduledSessions" aria-expanded="false" aria-controls="scheduledSessions">
                     <i class="bi bi-calendar-event"></i> Sessões
                     <?php if (count($scheduled_sessions) > 0): ?>
                         <span class="badge"><?php echo count($scheduled_sessions); ?></span>
-                    <?php endif; ?>
+                    <?php endif; ?>                
                 </button>
             </div>
             <div class="col-md-3">
@@ -175,7 +166,7 @@ $scheduled_sessions = $schedule->getUpcomingSessions(); // Changed from getSched
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
     <script src="components/js/homepage.js"></script>
-    
+       
     <!-- Calendar Script -->
     <script>
         let calendar;
