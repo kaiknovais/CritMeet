@@ -347,25 +347,33 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_messages') {
 
 .message-form {
     display: flex;
+    align-items: center;
+    justify-content: space-between;
     gap: 8px;
-    padding: 10px 15px;
+    padding: 10px;
     background: white;
     border-top: 1px solid #e9ecef;
     position: sticky;
     bottom: 0;
     z-index: 10;
+    width: 100%;
+    box-sizing: border-box;
+    flex-wrap: nowrap;
 }
 
+
 .message-input {
-    flex: 1;
+    flex: 1 1 auto;
+    min-width: 0;
     padding: 10px 15px;
     border: 1px solid #ddd;
     border-radius: 20px;
     outline: none;
     font-size: 14px;
-    transition: border-color 0.3s ease;
-    min-width: 0;
+    box-sizing: border-box;
+    max-width: 100%;
 }
+
 
 .message-input:focus {
     border-color: #007bff;
@@ -379,15 +387,16 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_messages') {
     border: none;
     border-radius: 20px;
     cursor: pointer;
-    transition: background-color 0.3s ease;
     flex-shrink: 0;
+    width: auto;
     min-width: 44px;
     height: 44px;
     display: flex;
     align-items: center;
     justify-content: center;
-    
+    box-sizing: border-box;
 }
+
 
 .message-button:hover {
     background: #0056b3;
