@@ -1,4 +1,5 @@
 <?php
+// pages/Profile/index.php - Versão atualizada
 require_once __DIR__ . '/../../config.php';
 session_start();
 
@@ -7,7 +8,7 @@ $is_admin = false;
 $user = null; 
 
 if ($user_id) {
-    $query = "SELECT username, image, gender, pronouns, preferences, admin FROM users WHERE id = ?";
+    $query = "SELECT username, name, image, gender, pronouns, preferences, admin FROM users WHERE id = ?";
     $stmt = $mysqli->prepare($query);
     $stmt->bind_param("i", $user_id);
     $stmt->execute();
@@ -18,6 +19,21 @@ if ($user_id) {
         $is_admin = $row['admin'] == 1; 
     }
     $stmt->close();
+}
+
+// Função para exibir imagem do perfil
+function getProfileImageUrl($image_data) {
+    if (empty($image_data)) {
+        return 'default-avatar.png';
+    }
+    
+    // Verificar se é base64 (dados antigos)
+    if (preg_match('/^[a-zA-Z0-9\/\r\n+]*={0,2}$/', $image_data)) {
+        return 'data:image/jpeg;base64,' . $image_data;
+    } else {
+        // É um nome de arquivo
+        return '../../uploads/profiles/' . $image_data;
+    }
 }
 ?>
 
@@ -31,6 +47,58 @@ if ($user_id) {
     <link rel="stylesheet" href="../../../assets/desktop.css" media="screen and (min-width: 601px)">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <style>
+        .profile-container {
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 2rem;
+        }
+        .profile-image {
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 5px solid #dee2e6;
+            margin-bottom: 1rem;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .profile-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        .profile-table {
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .profile-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            width: 30%;
+            padding: 1rem;
+            border: none;
+        }
+        .profile-table td {
+            padding: 1rem;
+            border: none;
+            word-wrap: break-word;
+        }
+        .profile-table tr:not(:last-child) {
+            border-bottom: 1px solid #dee2e6;
+        }
+        .btn-edit {
+            margin-top: 1rem;
+        }
+        .admin-badge {
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+    </style>
 </head>
 <body>
 <?php include 'header.php'; ?>
@@ -65,27 +133,66 @@ if ($user_id) {
     </div>
 </nav>
 
-<div class="profile-container">
-    <?php if (!empty($user['image'])): ?>
-        <img src="data:image/jpeg;base64,<?php echo $user['image']; ?>" alt="Imagem de Perfil" class="profile-image" />
-    <?php else: ?>
-        <img src="default-avatar.png" alt="Imagem de Perfil Padrão" class="profile-image" />
-    <?php endif; ?>
-    <h2><?php echo htmlspecialchars($user['username']); ?> <?php if ($is_admin): ?><span class="badge bg-danger">Admin</span><?php endif; ?></h2>
-    <table class="table profile-table">
-        <tr>
-            <th>Gênero:</th>
-            <td><?php echo htmlspecialchars($user['gender']); ?></td>
-        </tr>
-        <tr>
-            <th>Pronomes:</th>
-            <td><?php echo htmlspecialchars($user['pronouns']); ?></td>
-        </tr>
-        <tr>
-            <th>Preferências de Jogo:</th>
-            <td><?php echo htmlspecialchars($user['preferences']); ?></td>
-        </tr>
-    </table>
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="profile-container">
+                <div class="profile-header">
+                    <img src="<?php echo getProfileImageUrl($user['image']); ?>" 
+                         alt="Imagem de Perfil" 
+                         class="profile-image" 
+                         onerror="this.src='default-avatar.png'" />
+                    
+                    <h2 class="mb-2">
+                        <?php echo htmlspecialchars($user['username']); ?>
+                        <?php if ($is_admin): ?>
+                            <span class="badge bg-danger admin-badge ms-2">
+                                <i class="bi bi-shield-check"></i> Admin
+                            </span>
+                        <?php endif; ?>
+                    </h2>
+                    
+                    <?php if (!empty($user['name']) && $user['name'] !== $user['username']): ?>
+                        <p class="text-muted mb-0"><?php echo htmlspecialchars($user['name']); ?></p>
+                    <?php endif; ?>
+                </div>
+
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0"><i class="bi bi-person-circle"></i> Informações do Perfil</h5>
+                    </div>
+                    <div class="card-body p-0">
+                        <table class="table table-striped profile-table mb-0">
+                            <tr>
+                                <th><i class="bi bi-gender-ambiguous"></i> Gênero:</th>
+                                <td><?php echo !empty($user['gender']) ? htmlspecialchars($user['gender']) : '<span class="text-muted">Não informado</span>'; ?></td>
+                            </tr>
+                            <tr>
+                                <th><i class="bi bi-chat-quote"></i> Pronomes:</th>
+                                <td><?php echo !empty($user['pronouns']) ? htmlspecialchars($user['pronouns']) : '<span class="text-muted">Não informado</span>'; ?></td>
+                            </tr>
+                            <tr>
+                                <th><i class="bi bi-controller"></i> Preferências de Jogo:</th>
+                                <td>
+                                    <?php if (!empty($user['preferences'])): ?>
+                                        <div style="white-space: pre-wrap;"><?php echo htmlspecialchars($user['preferences']); ?></div>
+                                    <?php else: ?>
+                                        <span class="text-muted">Nenhuma preferência informada</span>
+                                    <?php endif; ?>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="text-center btn-edit">
+                    <a href="../editprofile/" class="btn btn-primary btn-lg">
+                        <i class="bi bi-pencil-square"></i> Editar Perfil
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <?php include 'footer.php'; ?>
