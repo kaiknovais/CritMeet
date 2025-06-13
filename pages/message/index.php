@@ -31,6 +31,21 @@ if (!isset($_GET['friend_id'])) {
 
 $friend_id = $_GET['friend_id'];
 
+// Função para exibir imagem do perfil (mesma do profile.php)
+function getProfileImageUrl($image_data) {
+    if (empty($image_data)) {
+        return 'default-avatar.png';
+    }
+    
+    // Verificar se é base64 (dados antigos)
+    if (preg_match('/^[a-zA-Z0-9\/\r\n+]*={0,2}$/', $image_data)) {
+        return 'data:image/jpeg;base64,' . $image_data;
+    } else {
+        // É um nome de arquivo
+        return '../../uploads/profiles/' . $image_data;
+    }
+}
+
 // Consultar informações do amigo (username e avatar)
 $sql_friend = "SELECT username, image FROM users WHERE id = ?";
 $stmt_friend = $mysqli->prepare($sql_friend);
@@ -89,74 +104,11 @@ if ($result->num_rows === 0) {
     $chat_id = $row['chat_id'];
 }
 
-// Criar tabela user_typing se não existir
-$create_typing_table = "CREATE TABLE IF NOT EXISTS user_typing (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    chat_id INT NOT NULL,
-    user_id INT NOT NULL,
-    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE KEY unique_chat_user (chat_id, user_id),
-    FOREIGN KEY (chat_id) REFERENCES chats(id) ON DELETE CASCADE,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-)";
-$mysqli->query($create_typing_table);
-
-// Gerenciar indicador de "está digitando"
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'typing') {
-    $is_typing = $_POST['is_typing'] ?? false;
-    
-    if ($is_typing) {
-        // Criar/atualizar registro de digitação
-        $sql_typing = "INSERT INTO user_typing (chat_id, user_id, timestamp) VALUES (?, ?, NOW()) 
-                       ON DUPLICATE KEY UPDATE timestamp = NOW()";
-        $stmt_typing = $mysqli->prepare($sql_typing);
-        $stmt_typing->bind_param("ii", $chat_id, $user_id);
-        $stmt_typing->execute();
-    } else {
-        // Remover registro de digitação
-        $sql_remove_typing = "DELETE FROM user_typing WHERE chat_id = ? AND user_id = ?";
-        $stmt_remove = $mysqli->prepare($sql_remove_typing);
-        $stmt_remove->bind_param("ii", $chat_id, $user_id);
-        $stmt_remove->execute();
-    }
-    
-    echo json_encode(['success' => true]);
-    exit();
-}
-
-// Verificar quem está digitando
-if (isset($_GET['action']) && $_GET['action'] === 'check_typing') {
-    $sql_check_typing = "SELECT u.username FROM user_typing ut 
-                         JOIN users u ON ut.user_id = u.id 
-                         WHERE ut.chat_id = ? AND ut.user_id != ? 
-                         AND ut.timestamp > DATE_SUB(NOW(), INTERVAL 5 SECOND)";
-    
-    $stmt_check = $mysqli->prepare($sql_check_typing);
-    $stmt_check->bind_param("ii", $chat_id, $user_id);
-    $stmt_check->execute();
-    $result_typing = $stmt_check->get_result();
-    
-    $typing_users = [];
-    while ($row = $result_typing->fetch_assoc()) {
-        $typing_users[] = $row['username'];
-    }
-    
-    echo json_encode($typing_users);
-    exit();
-}
-
 // Se for requisição AJAX para enviar mensagem
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'send_message') {
     $content = trim($_POST['content'] ?? '');
     
     if (!empty($content)) {
-        // Primeiro, remover indicador de digitação
-        $sql_remove_typing = "DELETE FROM user_typing WHERE chat_id = ? AND user_id = ?";
-        $stmt_remove = $mysqli->prepare($sql_remove_typing);
-        $stmt_remove->bind_param("ii", $chat_id, $user_id);
-        $stmt_remove->execute();
-        
-        // Depois, inserir mensagem
         $sql_insert = "INSERT INTO messages (chat_id, sender_id, content) VALUES (?, ?, ?)";
         $stmt_insert = $mysqli->prepare($sql_insert);
         $stmt_insert->bind_param("iis", $chat_id, $user_id, $content);
@@ -212,23 +164,92 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_messages') {
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     
     <style>
-/* Estilos melhorados para o chat - Mobile First */
+/* Reset básico para evitar problemas de layout */
+* {
+    box-sizing: border-box;
+}
+
+html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+}
+
+/* Layout principal em flexbox - FUNDAMENTAL para funcionar */
+.main-container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    width: 100%;
+}
+
+/* Navbar fixa no topo */
+.navbar {
+    flex-shrink: 0;
+    z-index: 1000;
+}
+
+/* Container do chat ocupa o espaço restante */
+.chat-page-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding: 10px;
+    min-height: 0; /* Importante para flexbox funcionar corretamente */
+}
+
+/* Wrapper do chat com altura fixa */
+.chat-wrapper {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    overflow: hidden;
+    max-width: 900px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+/* Header do chat fixo */
 .chat-header {
+    flex-shrink: 0;
     background: #f8f9fa;
     padding: 12px 15px;
     border-bottom: 1px solid #e9ecef;
     display: flex;
     align-items: center;
     gap: 10px;
-    border-radius: 8px 8px 0 0;
-    position: sticky;
-    top: 0;
     z-index: 10;
 }
 
+/* Container de mensagens com rolagem */
+.chat-container {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 15px;
+    background: #f8f9fa;
+    display: flex;
+    flex-direction: column;
+    min-height: 0; /* Força o container a não crescer além do disponível */
+}
+
+/* Input fixo na parte inferior */
+.message-form-container {
+    flex-shrink: 0;
+    padding: 15px;
+    background: white;
+    border-top: 1px solid #e9ecef;
+}
+
+/* Estilos dos avatares */
 .friend-avatar {
-    width: 35px;
-    height: 35px;
+    width: 40px;
+    height: 40px;
     border-radius: 50%;
     object-fit: cover;
     border: 2px solid #007bff;
@@ -236,8 +257,8 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_messages') {
 }
 
 .default-avatar {
-    width: 35px;
-    height: 35px;
+    width: 40px;
+    height: 40px;
     border-radius: 50%;
     background: #007bff;
     display: flex;
@@ -245,34 +266,25 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_messages') {
     justify-content: center;
     color: white;
     font-weight: bold;
-    font-size: 14px;
+    font-size: 16px;
     border: 2px solid #007bff;
     flex-shrink: 0;
 }
 
-.chat-container {
-    height: calc(100vh - 200px);
-    min-height: 300px;
-    max-height: none;
-    overflow-y: auto;
-    padding: 10px;
-    background: #f8f9fa;
-    scroll-behavior: smooth;
-    position: relative;
-}
-
+/* Estilos das mensagens */
 .message {
-    margin-bottom: 10px;
-    padding: 8px 12px;
-    border-radius: 15px;
+    margin-bottom: 15px;
+    padding: 10px 15px;
+    border-radius: 18px;
     max-width: 85%;
     animation: slideIn 0.3s ease-out;
     display: flex;
     align-items: flex-start;
-    gap: 6px;
+    gap: 10px;
     word-wrap: break-word;
     word-break: break-word;
     hyphens: auto;
+    flex-shrink: 0; /* Impede que mensagens encolham */
 }
 
 @keyframes slideIn {
@@ -289,7 +301,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_messages') {
 .message.own {
     background-color: #007bff;
     color: white;
-    margin-left: auto;
+    align-self: flex-end;
     flex-direction: row-reverse;
     border-bottom-right-radius: 5px;
 }
@@ -297,20 +309,22 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_messages') {
 .message.other {
     background-color: #e9ecef;
     color: #333;
+    align-self: flex-start;
     border-bottom-left-radius: 5px;
 }
 
 .message-avatar {
-    width: 24px;
-    height: 24px;
+    width: 32px;
+    height: 32px;
     border-radius: 50%;
     object-fit: cover;
     flex-shrink: 0;
+    border: 2px solid rgba(255,255,255,0.3);
 }
 
 .message-avatar-default {
-    width: 24px;
-    height: 24px;
+    width: 32px;
+    height: 32px;
     border-radius: 50%;
     background: #6c757d;
     display: flex;
@@ -318,8 +332,14 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_messages') {
     justify-content: center;
     color: white;
     font-weight: bold;
-    font-size: 10px;
+    font-size: 14px;
     flex-shrink: 0;
+    border: 2px solid rgba(255,255,255,0.3);
+}
+
+.message.own .message-avatar,
+.message.own .message-avatar-default {
+    border-color: rgba(255,255,255,0.5);
 }
 
 .message-content {
@@ -329,51 +349,39 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_messages') {
 
 .message-username {
     font-weight: 600;
-    font-size: 0.75rem;
-    margin-bottom: 2px;
+    font-size: 0.8rem;
+    margin-bottom: 3px;
     opacity: 0.8;
 }
 
 .message-text {
     line-height: 1.4;
-    font-size: 0.9rem;
+    font-size: 0.95rem;
+    margin-bottom: 3px;
 }
 
 .message-timestamp {
-    font-size: 0.65rem;
+    font-size: 0.7rem;
     opacity: 0.7;
-    margin-top: 3px;
 }
 
+/* Formulário de mensagem */
 .message-form {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    padding: 10px;
-    background: white;
-    border-top: 1px solid #e9ecef;
-    position: sticky;
-    bottom: 0;
-    z-index: 10;
+    gap: 10px;
     width: 100%;
-    box-sizing: border-box;
-    flex-wrap: nowrap;
 }
-
 
 .message-input {
-    flex: 1 1 auto;
-    min-width: 0;
-    padding: 10px 15px;
+    flex: 1;
+    padding: 12px 18px;
     border: 1px solid #ddd;
-    border-radius: 20px;
+    border-radius: 25px;
     outline: none;
     font-size: 14px;
-    box-sizing: border-box;
-    max-width: 100%;
+    min-width: 0;
 }
-
 
 .message-input:focus {
     border-color: #007bff;
@@ -381,90 +389,44 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_messages') {
 }
 
 .message-button {
-    padding: 10px 15px;
+    padding: 12px 18px;
     background: #007bff;
     color: white;
     border: none;
-    border-radius: 20px;
+    border-radius: 25px;
     cursor: pointer;
     flex-shrink: 0;
-    width: auto;
-    min-width: 44px;
-    height: 44px;
+    width: 48px;
+    height: 48px;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-sizing: border-box;
 }
-
 
 .message-button:hover {
     background: #0056b3;
 }
 
-.typing-indicator {
-    background: rgba(108, 117, 125, 0.1);
-    color: #6c757d;
-    padding: 6px 12px;
-    border-radius: 15px;
-    margin: 8px 10px;
-    font-style: italic;
-    animation: pulse 2s infinite;
-    max-width: 180px;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 0.8rem;
-}
-
-@keyframes pulse {
-    0%, 100% { opacity: 0.6; }
-    50% { opacity: 1; }
-}
-
-.typing-dots::after {
-    content: '';
-    animation: ellipsis 1.5s infinite;
-}
-
-@keyframes ellipsis {
-    0% { content: ''; }
-    25% { content: '.'; }
-    50% { content: '..'; }
-    75% { content: '...'; }
-    100% { content: ''; }
-}
-
-.chat-wrapper {
-    background: white;
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    overflow: hidden;
-    margin: 10px;
-    display: flex;
-    flex-direction: column;
-    height: calc(100vh - 120px);
-}
-
-/* Scrollbar personalizada para mobile */
+/* Scrollbar personalizada */
 .chat-container::-webkit-scrollbar {
-    width: 4px;
+    width: 8px;
 }
 
 .chat-container::-webkit-scrollbar-track {
-    background: transparent;
+    background: rgba(0,0,0,0.05);
+    border-radius: 4px;
 }
 
 .chat-container::-webkit-scrollbar-thumb {
-    background: rgba(0, 0, 0, 0.2);
-    border-radius: 2px;
+    background: rgba(0, 123, 255, 0.3);
+    border-radius: 4px;
 }
 
 .chat-container::-webkit-scrollbar-thumb:hover {
-    background: rgba(0, 0, 0, 0.3);
+    background: rgba(0, 123, 255, 0.5);
 }
 
-/* Header do chat responsivo */
+/* Header responsivo */
 .chat-header h5 {
     margin: 0;
     font-size: 1.1rem;
@@ -475,47 +437,44 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_messages') {
     font-size: 0.75rem;
 }
 
-/* Container principal responsivo */
-.container {
-    padding: 0;
-    margin: 0;
-    max-width: 100%;
-}
-
-/* Ajustes específicos para telas muito pequenas */
-@media (max-width: 480px) {
-    .chat-wrapper {
-        margin: 5px;
-        height: calc(100vh - 110px);
-        border-radius: 0;
-        border-left: none;
-        border-right: none;
+/* Responsividade para mobile */
+@media (max-width: 768px) {
+    .chat-page-container {
+        padding: 5px;
     }
     
     .message {
         max-width: 90%;
-        padding: 6px 10px;
+        padding: 8px 12px;
+        gap: 8px;
     }
     
     .message-text {
-        font-size: 0.85rem;
+        font-size: 0.9rem;
     }
     
     .message-input {
         font-size: 16px; /* Evita zoom no iOS */
-        padding: 8px 12px;
+        padding: 10px 15px;
     }
     
     .message-button {
-        min-width: 40px;
-        height: 40px;
-        padding: 8px 12px;
+        width: 44px;
+        height: 44px;
+        padding: 10px;
     }
     
     .friend-avatar,
     .default-avatar {
-        width: 30px;
-        height: 30px;
+        width: 35px;
+        height: 35px;
+        font-size: 14px;
+    }
+    
+    .message-avatar,
+    .message-avatar-default {
+        width: 28px;
+        height: 28px;
         font-size: 12px;
     }
     
@@ -526,169 +485,196 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_messages') {
     .chat-header h5 {
         font-size: 1rem;
     }
-}
-
-/* Ajustes para telas maiores (tablet) */
-@media (min-width: 601px) {
-    .chat-wrapper {
-        margin: 20px auto;
-        max-width: 800px;
-        height: 600px;
-    }
     
     .chat-container {
-        height: calc(600px - 160px);
-        max-height: 440px;
+        padding: 10px;
     }
     
-    .message {
-        max-width: 70%;
-    }
-    
-    .container {
-        padding: 0 15px;
+    .message-form-container {
+        padding: 10px;
     }
 }
 
-/* Fixes para problemas de layout */
-.message-form {
-    box-sizing: border-box;
-}
-
-.message-input {
-    box-sizing: border-box;
-}
-
-/* Evitar problemas com viewport em mobile */
-html {
-    -webkit-text-size-adjust: 100%;
-}
-
-body {
-    margin: 0;
-    padding: 0;
-    overflow-x: hidden;
-}
-
-/* Melhorar legibilidade em telas pequenas */
-@media (max-width: 400px) {
+/* Ajustes para telas muito pequenas */
+@media (max-width: 480px) {
     .message-username {
-        font-size: 0.7rem;
+        font-size: 0.75rem;
     }
     
     .message-timestamp {
-        font-size: 0.6rem;
+        font-size: 0.65rem;
     }
-    
-    .typing-indicator {
-        font-size: 0.75rem;
-        max-width: 150px;
+}
+
+/* Animação para novas mensagens */
+.message.new-message {
+    animation: newMessage 0.5s ease-out;
+}
+
+@keyframes newMessage {
+    from {
+        opacity: 0;
+        transform: translateY(20px) scale(0.95);
     }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* Indicadores visuais de scroll */
+.chat-container.has-scroll-top::before {
+    content: '';
+    position: sticky;
+    top: 0;
+    display: block;
+    height: 20px;
+    background: linear-gradient(to bottom, rgba(248,249,250,0.9), transparent);
+    margin: -15px -15px 0 -15px;
+    z-index: 1;
+}
+
+.chat-container.has-scroll-bottom::after {
+    content: '';
+    position: sticky;
+    bottom: 0;
+    display: block;
+    height: 20px;
+    background: linear-gradient(to top, rgba(248,249,250,0.9), transparent);
+    margin: 0 -15px -15px -15px;
+    z-index: 1;
 }
     </style>
 </head>
 <body>
-    <?php include 'header.php'; ?>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-
-    <nav class="navbar navbar-expand-lg bg-body-tertiary" data-bs-theme="dark">
-        <div class="container-fluid">
-            <a class="navbar-brand" href="../homepage/">CritMeet</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarSupportedContent">
-                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                    <li class="nav-item"><a class="nav-link" href="../homepage/">Home</a></li>
-                    <li class="nav-item"><a class="nav-link" href="../Profile/">Meu Perfil</a></li>
-                    <li class="nav-item"><a class="nav-link" href="../rpg_info">RPG</a></li>
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle active" href="#" data-bs-toggle="dropdown">Mais...</a>
-                        <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="../settings/">Configurações</a></li>
-                            <li><a class="dropdown-item" href="../friends/">Conexões</a></li>
-                            <li><a class="dropdown-item" href="../chat/">Chat</a></li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="../../components/Logout/">Logout</a></li>
-                            <?php if ($is_admin): ?>
-                                <li><a class="dropdown-item text-danger" href="../admin/">Lista de Usuários</a></li>
-                            <?php endif; ?>
-                        </ul>
-                    </li>
-                </ul>
-            </div>
-        </div>
-    </nav>
-
-    <div class="container mt-4">
-        <div class="chat-wrapper">
-            <!-- Cabeçalho do chat com avatar do amigo -->
-            <div class="chat-header">
-                <?php if ($friend_avatar): ?>
-                    <img src="<?php echo htmlspecialchars($friend_avatar); ?>" alt="Avatar" class="friend-avatar">
-                <?php else: ?>
-                    <div class="default-avatar">
-                        <?php echo strtoupper(substr($friend_username, 0, 1)); ?>
-                    </div>
-                <?php endif; ?>
-                <div>
-                    <h5 class="mb-1">Chat com <?php echo htmlspecialchars($friend_username); ?></h5>
-                    <small class="text-muted">Online</small>
+    <div class="main-container">
+        <!-- Navbar fixa -->
+        <nav class="navbar navbar-expand-lg bg-body-tertiary" data-bs-theme="dark">
+            <div class="container-fluid">
+                <a class="navbar-brand" href="../homepage/">CritMeet</a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="navbarSupportedContent">
+                    <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                        <li class="nav-item"><a class="nav-link" href="../homepage/">Home</a></li>
+                        <li class="nav-item"><a class="nav-link" href="../Profile/">Meu Perfil</a></li>
+                        <li class="nav-item"><a class="nav-link" href="../rpg_info">RPG</a></li>
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle active" href="#" data-bs-toggle="dropdown">Mais...</a>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="../settings/">Configurações</a></li>
+                                <li><a class="dropdown-item" href="../friends/">Conexões</a></li>
+                                <li><a class="dropdown-item" href="../chat/">Chat</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item" href="../../components/Logout/">Logout</a></li>
+                                <?php if ($is_admin): ?>
+                                    <li><a class="dropdown-item text-danger" href="../admin/">Lista de Usuários</a></li>
+                                <?php endif; ?>
+                            </ul>
+                        </li>
+                    </ul>
                 </div>
             </div>
+        </nav>
 
-            <!-- Container das mensagens -->
-            <div id="messages-container" class="chat-container">
-                <!-- Mensagens serão carregadas aqui -->
-            </div>
+        <!-- Container principal do chat -->
+        <div class="chat-page-container">
+            <div class="chat-wrapper">
+                <!-- Cabeçalho do chat -->
+                <div class="chat-header">
+                    <?php 
+                    $friend_avatar_url = getProfileImageUrl($friend_avatar);
+                    if ($friend_avatar_url !== 'default-avatar.png'): 
+                    ?>
+                        <img src="<?php echo htmlspecialchars($friend_avatar_url); ?>" 
+                             alt="Avatar de <?php echo htmlspecialchars($friend_username); ?>" 
+                             class="friend-avatar"
+                             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                        <div class="default-avatar" style="display: none;">
+                            <?php echo strtoupper(substr($friend_username, 0, 1)); ?>
+                        </div>
+                    <?php else: ?>
+                        <div class="default-avatar">
+                            <?php echo strtoupper(substr($friend_username, 0, 1)); ?>
+                        </div>
+                    <?php endif; ?>
+                    <div>
+                        <h5>Chat com <?php echo htmlspecialchars($friend_username); ?></h5>
+                        <small class="text-muted">Online</small>
+                    </div>
+                </div>
 
-            <!-- Indicador de digitação -->
-            <div id="typing-indicator" class="typing-indicator" style="display: none; margin: 0 15px;">
-                <i class="bi bi-three-dots"></i>
-                <span class="typing-text"></span>
-            </div>
+                <!-- Container das mensagens com rolagem -->
+                <div id="messages-container" class="chat-container">
+                    <!-- Mensagens serão carregadas aqui -->
+                </div>
 
-            <!-- Formulário para enviar mensagem -->
-            <div style="padding: 15px;">
-                <form id="message-form" class="message-form">
-                    <input type="text" name="content" class="message-input" placeholder="Digite sua mensagem..." autocomplete="off" required>
-                    <button type="submit" class="message-button">
-                        <i class="bi bi-send-fill"></i>
-                    </button>
-                </form>
+                <!-- Formulário fixo na parte inferior -->
+                <div class="message-form-container">
+                    <form id="message-form" class="message-form">
+                        <input type="text" name="content" class="message-input" placeholder="Digite sua mensagem..." autocomplete="off" required>
+                        <button type="submit" class="message-button">
+                            <i class="bi bi-send-fill"></i>
+                        </button>
+                    </form>
+                </div>
             </div>
         </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    
     <script>
         let lastMessageCount = 0;
-        let typingTimer;
-        let isTyping = false;
         let shouldScrollToBottom = true;
 
         // Função para verificar se o usuário está no final do chat
         function isUserAtBottom() {
-            const container = $('#messages-container');
-            const scrollTop = container.scrollTop();
-            const scrollHeight = container[0].scrollHeight;
-            const clientHeight = container.height();
+            const container = $('#messages-container')[0];
+            const scrollTop = container.scrollTop;
+            const scrollHeight = container.scrollHeight;
+            const clientHeight = container.clientHeight;
             return scrollTop + clientHeight >= scrollHeight - 30;
         }
 
         // Função para rolar para o final
         function scrollToBottom(force = false) {
             if (force || shouldScrollToBottom) {
-                const container = $('#messages-container');
-                container.stop().animate({
-                    scrollTop: container[0].scrollHeight
-                }, 200);
+                const container = $('#messages-container')[0];
+                container.scrollTop = container.scrollHeight;
             }
         }
 
         // Detectar quando o usuário rola manualmente
         $('#messages-container').on('scroll', function() {
             shouldScrollToBottom = isUserAtBottom();
+            updateScrollIndicators();
         });
+
+        // Atualizar indicadores de scroll
+        function updateScrollIndicators() {
+            const container = $('#messages-container')[0];
+            const hasScrollTop = container.scrollTop > 20;
+            const hasScrollBottom = container.scrollTop + container.clientHeight < container.scrollHeight - 20;
+            
+            const $container = $('#messages-container');
+            $container.toggleClass('has-scroll-top', hasScrollTop);
+            $container.toggleClass('has-scroll-bottom', hasScrollBottom);
+        }
+
+        // Função para obter URL do avatar
+        function getProfileImageUrl(imageData) {
+            if (!imageData) {
+                return null;
+            }
+            
+            if (/^[a-zA-Z0-9\/\r\n+]*={0,2}$/.test(imageData)) {
+                return 'data:image/jpeg;base64,' + imageData;
+            } else {
+                return '../../uploads/profiles/' + imageData;
+            }
+        }
 
         // Função para carregar mensagens
         function loadMessages() {
@@ -706,40 +692,16 @@ body {
                         displayMessages(messages);
                         lastMessageCount = messages.length;
                         
-                        // Rolar para baixo se estava no final ou se é uma nova mensagem própria
+                        // Rolar para baixo se estava no final ou se é nova mensagem própria
                         if (wasAtBottom || (messages.length > 0 && messages[messages.length - 1].is_own)) {
-                            scrollToBottom(true);
+                            setTimeout(() => scrollToBottom(true), 100);
                         }
+                        
+                        updateScrollIndicators();
                     }
                 },
                 error: function(xhr, status, error) {
                     console.error('Erro ao carregar mensagens:', error);
-                }
-            });
-        }
-
-        // Função para verificar quem está digitando
-        function checkTyping() {
-            $.ajax({
-                url: window.location.href,
-                type: 'GET',
-                data: { 
-                    action: 'check_typing',
-                    friend_id: <?php echo $friend_id; ?>
-                },
-                dataType: 'json',
-                success: function(typingUsers) {
-                    const indicator = $('#typing-indicator');
-                    if (typingUsers.length > 0) {
-                        const userName = typingUsers[0];
-                        indicator.find('.typing-text').html(`${userName} está digitando<span class="typing-dots"></span>`);
-                        indicator.show();
-                        if (shouldScrollToBottom) {
-                            scrollToBottom();
-                        }
-                    } else {
-                        indicator.hide();
-                    }
                 }
             });
         }
@@ -757,8 +719,11 @@ body {
                 });
                 
                 let avatarHtml = '';
-                if (message.avatar) {
-                    avatarHtml = `<img src="${message.avatar}" alt="Avatar" class="message-avatar">`;
+                const avatarUrl = getProfileImageUrl(message.avatar);
+                
+                if (avatarUrl) {
+                    avatarHtml = `<img src="${avatarUrl}" alt="Avatar de ${message.username}" class="message-avatar" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                  <div class="message-avatar-default" style="display: none;">${message.username.charAt(0).toUpperCase()}</div>`;
                 } else {
                     const initial = message.username.charAt(0).toUpperCase();
                     avatarHtml = `<div class="message-avatar-default">${initial}</div>`;
@@ -779,34 +744,6 @@ body {
             });
         }
 
-        // Função para enviar indicador de digitação
-        function sendTypingIndicator(typing) {
-            $.ajax({
-                url: window.location.href,
-                type: 'POST',
-                data: { 
-                    action: 'typing',
-                    is_typing: typing,
-                    friend_id: <?php echo $friend_id; ?>
-                },
-                dataType: 'json'
-            });
-        }
-
-        // Gerenciar indicador de digitação
-        $('input[name="content"]').on('input', function() {
-            if (!isTyping) {
-                isTyping = true;
-                sendTypingIndicator(true);
-            }
-            
-            clearTimeout(typingTimer);
-            typingTimer = setTimeout(function() {
-                isTyping = false;
-                sendTypingIndicator(false);
-            }, 2000);
-        });
-
         // Enviar mensagem
         $('#message-form').on('submit', function(e) {
             e.preventDefault();
@@ -814,11 +751,6 @@ body {
             const content = $('input[name="content"]').val().trim();
             
             if (content) {
-                // Parar indicador de digitação
-                clearTimeout(typingTimer);
-                isTyping = false;
-                sendTypingIndicator(false);
-                
                 $.ajax({
                     url: window.location.href,
                     type: 'POST',
@@ -850,31 +782,20 @@ body {
             }
         });
 
-        // Carregar mensagens inicialmente
-        loadMessages();
-
-        // Atualizar mensagens e verificar digitação
-        setInterval(function() {
+        // Inicialização
+        $(document).ready(function() {
             loadMessages();
-            checkTyping();
-        }, 1500);
-
-        // Focar no campo de entrada
-        $('input[name="content"]').focus();
-
-        // Parar indicador de digitação quando sair da página
-        $(window).on('beforeunload', function() {
-            if (isTyping) {
-                sendTypingIndicator(false);
-            }
+            $('input[name="content"]').focus();
+            
+            // Carregar mensagens periodicamente
+            setInterval(loadMessages, 2000);
+            
+            // Scroll inicial após um pequeno delay
+            setTimeout(() => {
+                scrollToBottom(true);
+                updateScrollIndicators();
+            }, 500);
         });
-
-        // Inicializar scroll
-        setTimeout(function() {
-            scrollToBottom(true);
-        }, 500);
     </script>
-
-    <?php include 'footer.php'; ?>
 </body>
 </html>
