@@ -146,9 +146,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['group_name'])) {
                     <?php while ($row = $result_groups->fetch_assoc()): ?>
                         <li class="list-group-item d-flex justify-content-between align-items-center">
                             <span><?php echo htmlspecialchars($row['name']); ?></span>
-                            <a class="btn btn-link btn-sm" href="../groupmessage/?chat_id=<?php echo $row['id']; ?>">Entrar no Chat</a>
+                            <a class="btn btn-link btn-sm" href="../groupmessage/?group_id=<?php echo $row['id']; ?>">Entrar no Chat</a>
                             <?php if ($row['creator_id'] == $user_id || $is_admin): ?>
-                                <a class="btn btn-warning btn-sm" href="../editgroup/?chat_id=<?php echo $row['id']; ?>">Editar</a>
+                                <a class="btn btn-warning btn-sm" href="../editgroup/?group_id=<?php echo $row['id']; ?>">Editar</a>
                             <?php endif; ?>
                         </li>
                     <?php endwhile; ?>

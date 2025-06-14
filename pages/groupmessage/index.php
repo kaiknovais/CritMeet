@@ -24,12 +24,11 @@ if (!isset($_SESSION['user_id'])) {
 
 $user_id = $_SESSION['user_id'];
 
-if (!isset($_GET['group_id'])) {
-    echo "<script>alert('ID do grupo não fornecido.'); window.location.href='../chat/';</script>";
+$group_id = filter_input(INPUT_GET, 'group_id', FILTER_VALIDATE_INT);
+if (!$group_id) {
+    echo "<script>alert('ID do grupo inválido.'); window.location.href='../chat/';</script>";
     exit();
 }
-
-$group_id = $_GET['group_id'];
 
 // Função para exibir imagem do perfil
 function getProfileImageUrl($image_data) {
@@ -47,7 +46,7 @@ function getProfileImageUrl($image_data) {
 }
 
 // Verificar se o usuário é membro do grupo
-$sql_check_member = "SELECT cm.role, c.name, c.creator_id 
+$sql_check_member = "SELECT cm.role, c.name, c.creator_id, c.image 
                      FROM chat_members cm 
                      JOIN chats c ON cm.chat_id = c.id 
                      WHERE cm.chat_id = ? AND cm.user_id = ? AND c.is_group = 1";
@@ -64,9 +63,136 @@ if ($result_check->num_rows === 0) {
 $member_data = $result_check->fetch_assoc();
 $user_role = $member_data['role'];
 $group_name = $member_data['name'];
+$group_image = $member_data['image'];
 $creator_id = $member_data['creator_id'];
 $is_creator = ($creator_id == $user_id);
 $stmt_check->close();
+
+
+// Adicionar após a verificação de membros do grupo e antes do processamento de mensagens
+
+// Processar upload de imagem do grupo
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['group_image']) && ($user_role === 'admin' || $is_creator)) {
+    $upload_dir = '../../uploads/groups/';
+    
+    // Criar diretório se não existir
+    if (!file_exists($upload_dir)) {
+        mkdir($upload_dir, 0755, true);
+    }
+    
+    $file = $_FILES['group_image'];
+    $allowed_types = ['image/jpeg', 'image/png', 'image/gif'];
+    
+    if (in_array($file['type'], $allowed_types) && $file['size'] <= 5000000) {
+        $file_extension = pathinfo($file['name'], PATHINFO_EXTENSION);
+        $new_filename = 'group_' . $group_id . '_' . time() . '.' . $file_extension;
+        $upload_path = $upload_dir . $new_filename;
+        
+        if (move_uploaded_file($file['tmp_name'], $upload_path)) {
+            $sql_update_image = "UPDATE chats SET image = ? WHERE id = ?";
+            $stmt_update_image = $mysqli->prepare($sql_update_image);
+            $stmt_update_image->bind_param("si", $new_filename, $group_id);
+            $stmt_update_image->execute();
+            $stmt_update_image->close();
+            
+            echo "<script>alert('Imagem do grupo atualizada!'); location.reload();</script>";
+        }
+    } else {
+        echo "<script>alert('Arquivo inválido. Use apenas JPEG, PNG ou GIF até 5MB.');</script>";
+    }
+}
+
+// Processar outras ações do grupo
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($user_role === 'admin' || $is_creator)) {
+    
+    // Atualizar nome do grupo
+    if (isset($_POST['update_group_name'])) {
+        $new_group_name = trim($_POST['group_name']);
+        if (!empty($new_group_name) && strlen($new_group_name) <= 100) {
+            $sql_update_name = "UPDATE chats SET name = ? WHERE id = ?";
+            $stmt_update = $mysqli->prepare($sql_update_name);
+            $stmt_update->bind_param("si", $new_group_name, $group_id);
+            if ($stmt_update->execute()) {
+                $group_name = $new_group_name;
+                echo "<script>alert('Nome do grupo atualizado!'); location.reload();</script>";
+            }
+            $stmt_update->close();
+        }
+    }
+    
+    // Adicionar membro
+    if (isset($_POST['add_member'])) {
+        $new_member_username = trim($_POST['new_member_username']);
+        
+        $sql_check_user = "SELECT id FROM users WHERE username = ?";
+        $stmt_check_user = $mysqli->prepare($sql_check_user);
+        $stmt_check_user->bind_param("s", $new_member_username);
+        $stmt_check_user->execute();
+        $stmt_check_user->bind_result($new_member_id);
+        $stmt_check_user->fetch();
+        $stmt_check_user->close();
+        
+        if ($new_member_id) {
+            $sql_check_member = "SELECT id FROM chat_members WHERE chat_id = ? AND user_id = ?";
+            $stmt_check_member = $mysqli->prepare($sql_check_member);
+            $stmt_check_member->bind_param("ii", $group_id, $new_member_id);
+            $stmt_check_member->execute();
+            $stmt_check_member->store_result();
+            
+            if ($stmt_check_member->num_rows == 0) {
+                $sql_add_member = "INSERT INTO chat_members (chat_id, user_id, role) VALUES (?, ?, 'member')";
+                $stmt_add_member = $mysqli->prepare($sql_add_member);
+                $stmt_add_member->bind_param("ii", $group_id, $new_member_id);
+                
+                if ($stmt_add_member->execute()) {
+                    echo "<script>alert('Membro adicionado!'); location.reload();</script>";
+                } else {
+                    echo "<script>alert('Erro ao adicionar membro.');</script>";
+                }
+                $stmt_add_member->close();
+            } else {
+                echo "<script>alert('Usuário já é membro.');</script>";
+            }
+            $stmt_check_member->close();
+        } else {
+            echo "<script>alert('Usuário não encontrado.');</script>";
+        }
+    }
+    
+    // Promover/rebaixar membro
+    if (isset($_POST['promote_member'])) {
+        $member_id = intval($_POST['member_id']);
+        $sql_promote = "UPDATE chat_members SET role = 'admin' WHERE chat_id = ? AND user_id = ? AND user_id != ?";
+        $stmt_promote = $mysqli->prepare($sql_promote);
+        $stmt_promote->bind_param("iii", $group_id, $member_id, $creator_id);
+        $stmt_promote->execute();
+        $stmt_promote->close();
+        echo "<script>alert('Membro promovido!'); location.reload();</script>";
+    }
+    
+    if (isset($_POST['demote_member'])) {
+        $member_id = intval($_POST['member_id']);
+        $sql_demote = "UPDATE chat_members SET role = 'member' WHERE chat_id = ? AND user_id = ? AND user_id != ?";
+        $stmt_demote = $mysqli->prepare($sql_demote);
+        $stmt_demote->bind_param("iii", $group_id, $member_id, $creator_id);
+        $stmt_demote->execute();
+        $stmt_demote->close();
+        echo "<script>alert('Membro rebaixado!'); location.reload();</script>";
+    }
+    
+    // Remover membro
+    if (isset($_POST['remove_member'])) {
+        $member_id = intval($_POST['member_id']);
+        if ($member_id != $creator_id) {
+            $sql_remove = "DELETE FROM chat_members WHERE chat_id = ? AND user_id = ?";
+            $stmt_remove = $mysqli->prepare($sql_remove);
+            $stmt_remove->bind_param("ii", $group_id, $member_id);
+            $stmt_remove->execute();
+            $stmt_remove->close();
+            echo "<script>alert('Membro removido!'); location.reload();</script>";
+        }
+    }
+}
 
 // Obter informações dos membros do grupo
 $sql_members = "SELECT u.id, u.username, u.image, cm.role 
@@ -606,6 +732,20 @@ html, body {
         padding: 6px;
     }
 }
+.member-actions {
+    display: flex;
+    gap: 5px;
+    flex-wrap: wrap;
+}
+
+.member-actions .btn {
+    font-size: 0.75rem;
+    padding: 4px 8px;
+}
+
+.group-avatar img {
+    border: 2px solid #007bff;
+}
 
 /* Ajustes para telas muito pequenas */
 @media (max-width: 480px) {
@@ -704,9 +844,16 @@ html, body {
                 <!-- Cabeçalho do chat -->
                 <div class="chat-header">
                     <div class="chat-header-left">
-                        <div class="group-avatar">
-                            <i class="bi bi-people-fill"></i>
-                        </div>
+                    <div class="group-avatar">
+    <?php 
+    $group_image_url = getGroupImageUrl($group_image);
+    if ($group_image_url && file_exists('../../uploads/groups/' . $group_image)): 
+    ?>
+        <img src="<?php echo $group_image_url; ?>" alt="Grupo" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">
+    <?php else: ?>
+        <i class="bi bi-people-fill"></i>
+    <?php endif; ?>
+</div>
                         <div>
                             <h5><?php echo htmlspecialchars($group_name ?: 'Chat em Grupo'); ?></h5>
                             <small class="text-muted"><?php echo $member_count; ?> membros</small>
@@ -717,10 +864,10 @@ html, body {
                             <i class="bi bi-people"></i>
                         </button>
                         <?php if ($user_role === 'admin' || $is_creator): ?>
-                        <button class="group-action-btn" type="button" title="Configurações do grupo">
-                            <i class="bi bi-gear"></i>
-                        </button>
-                        <?php endif; ?>
+<button class="group-action-btn" type="button" data-bs-toggle="modal" data-bs-target="#settingsModal" title="Configurações do grupo">
+    <i class="bi bi-gear"></i>
+</button>
+<?php endif; ?>
                     </div>
                 </div>
 
@@ -743,25 +890,97 @@ html, body {
     </div>
 
     <!-- Modal de Membros -->
-    <div class="modal fade members-modal" id="membersModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Membros do Grupo</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+    <div class="modal-body" id="members-list">
+    <?php foreach ($group_members as $member): ?>
+    <div class="member-item">
+        <?php 
+        $member_avatar_url = getProfileImageUrl($member['image']);
+        if ($member_avatar_url): 
+        ?>
+            <img src="<?php echo $member_avatar_url; ?>" alt="Avatar" class="member-avatar">
+        <?php else: ?>
+            <div class="member-avatar-default"><?php echo strtoupper($member['username'][0]); ?></div>
+        <?php endif; ?>
+        
+        <div class="member-info">
+            <p class="member-username"><?php echo htmlspecialchars($member['username']); ?></p>
+            <p class="member-role">
+                <?php if ($member['id'] == $creator_id): ?>
+                    <span class="creator-badge">Criador</span>
+                <?php elseif ($member['role'] == 'admin'): ?>
+                    <span class="admin-badge">Admin</span>
+                <?php else: ?>
+                    Membro
+                <?php endif; ?>
+            </p>
+        </div>
+        
+        <?php if (($user_role === 'admin' || $is_creator) && $member['id'] != $creator_id): ?>
+        <div class="member-actions">
+            <?php if ($member['role'] != 'admin'): ?>
+                <form method="POST" style="display: inline;">
+                    <input type="hidden" name="member_id" value="<?php echo $member['id']; ?>">
+                    <button type="submit" name="promote_member" class="btn btn-outline-primary btn-sm">Promover</button>
+                </form>
+            <?php else: ?>
+                <form method="POST" style="display: inline;">
+                    <input type="hidden" name="member_id" value="<?php echo $member['id']; ?>">
+                    <button type="submit" name="demote_member" class="btn btn-outline-secondary btn-sm">Rebaixar</button>
+                </form>
+            <?php endif; ?>
+            
+            <form method="POST" style="display: inline;" onsubmit="return confirm('Remover este membro?');">
+                <input type="hidden" name="member_id" value="<?php echo $member['id']; ?>">
+                <button type="submit" name="remove_member" class="btn btn-outline-danger btn-sm">Remover</button>
+            </form>
+        </div>
+        <?php endif; ?>
+    </div>
+    <?php endforeach; ?>
+</div>
+
+    <!-- Modal de Configurações -->
+<div class="modal fade" id="settingsModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Configurações do Grupo</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Upload de imagem -->
+                <div class="mb-3">
+                    <label class="form-label">Imagem do Grupo</label>
+                    <form method="POST" enctype="multipart/form-data" class="d-flex gap-2">
+                        <input type="file" name="group_image" class="form-control" accept="image/*">
+                        <button type="submit" class="btn btn-primary btn-sm">Enviar</button>
+                    </form>
                 </div>
-                <div class="modal-body" id="members-list">
-                    <!-- Lista de membros será carregada aqui -->
+                
+                <!-- Alterar nome -->
+                <div class="mb-3">
+                    <label class="form-label">Nome do Grupo</label>
+                    <form method="POST" class="d-flex gap-2">
+                        <input type="text" name="group_name" class="form-control" value="<?php echo htmlspecialchars($group_name); ?>" maxlength="100">
+                        <button type="submit" name="update_group_name" class="btn btn-primary btn-sm">Salvar</button>
+                    </form>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
-                    <?php if ($user_role === 'admin' || $is_creator): ?>
-                    <button type="button" class="btn btn-primary">Adicionar Membro</button>
-                    <?php endif; ?>
+                
+                <!-- Adicionar membro -->
+                <div class="mb-3">
+                    <label class="form-label">Adicionar Membro</label>
+                    <form method="POST" class="d-flex gap-2">
+                        <input type="text" name="new_member_username" class="form-control" placeholder="Username">
+                        <button type="submit" name="add_member" class="btn btn-success btn-sm">Adicionar</button>
+                    </form>
                 </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
             </div>
         </div>
     </div>
+</div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     
@@ -818,6 +1037,12 @@ html, body {
             }
         }
 
+        function getGroupImageUrl($image_data) {
+            if (empty($image_data)) {
+                return null;
+            }
+            return '../../uploads/groups/' . $image_data;
+        }
         // Função para carregar mensagens
         function loadMessages() {
             $.ajax({
@@ -935,7 +1160,7 @@ html, body {
                     data: { 
                         action: 'send_message',
                         content: content,
-                        friend_id: <?php echo $friend_id; ?>
+                        group_id: groupId
                     },
                     dataType: 'json',
                     success: function(response) {
