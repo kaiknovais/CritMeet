@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../../config.php';
+require_once __DIR__ . '/../../components/tags/index.php';
 session_start();
 
 $user_id = $_SESSION['user_id'] ?? null;
@@ -129,7 +130,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $name = $_POST['name'] ?? $user['name'];
         $gender = $_POST['gender'] ?? $user['gender'];
         $pronouns = $_POST['pronouns'] ?? $user['pronouns'];
-        $preferences = $_POST['preferences'] ?? $user['preferences'];
+        $preferences = $_POST['preferences'] ?? '';
         
         $new_image_filename = null;
         
@@ -189,6 +190,7 @@ function getProfileImageUrl($image_data) {
     }
 }
 ?>
+
 
 <!DOCTYPE html>
 <html lang="pt-br">

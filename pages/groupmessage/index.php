@@ -18,7 +18,7 @@ if ($user_id) {
 }
 
 if (!isset($_SESSION['user_id'])) {
-    echo "<script>alert('Usuário não autenticado.'); window.location.href='../../pages/login/';</script>";
+    header("Location: ../../pages/login/");
     exit();
 }
 
@@ -31,7 +31,7 @@ if (!$group_id) {
 }
 
 if (!$group_id) {
-    echo "<script>alert('ID do grupo inválido.'); window.location.href='../chat/';</script>";
+    header("Location: ../chat/");
     exit();
 }
 
@@ -69,7 +69,7 @@ $stmt_check->execute();
 $result_check = $stmt_check->get_result();
 
 if ($result_check->num_rows === 0) {
-    echo "<script>alert('Você não tem acesso a este grupo.'); window.location.href='../chat/';</script>";
+    header("Location: ../chat/");
     exit();
 }
 
@@ -88,7 +88,6 @@ $stmt_check->close();
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['group_image']) && ($user_role === 'admin' || $is_creator)) {
     $upload_dir = '../../uploads/groups/';
     
-    // Criar diretório se não existir
     if (!file_exists($upload_dir)) {
         mkdir($upload_dir, 0755, true);
     }
@@ -108,10 +107,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['group_image']) && ($
             $stmt_update_image->execute();
             $stmt_update_image->close();
             
-            echo "<script>alert('Imagem do grupo atualizada!'); location.reload();</script>";
+            // Atualizar a variável para refletir a mudança
+            $group_image = $new_filename;
+            
+            // Redirecionar para evitar resubmissão do formulário
+            header("Location: " . $_SERVER['REQUEST_URI']);
+            exit();
         }
-    } else {
-        echo "<script>alert('Arquivo inválido. Use apenas JPEG, PNG ou GIF até 5MB.');</script>";
     }
 }
 
@@ -127,7 +129,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($user_role === 'admin' || $is_crea
             $stmt_update->bind_param("si", $new_group_name, $group_id);
             if ($stmt_update->execute()) {
                 $group_name = $new_group_name;
-                echo "<script>alert('Nome do grupo atualizado!'); location.reload();</script>";
+                // Redirecionar para evitar resubmissão do formulário
+                header("Location: " . $_SERVER['REQUEST_URI']);
+                exit();
             }
             $stmt_update->close();
         }
@@ -158,17 +162,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($user_role === 'admin' || $is_crea
                 $stmt_add_member->bind_param("ii", $group_id, $new_member_id);
                 
                 if ($stmt_add_member->execute()) {
-                    echo "<script>alert('Membro adicionado!'); location.reload();</script>";
-                } else {
-                    echo "<script>alert('Erro ao adicionar membro.');</script>";
+                    header("Location: " . $_SERVER['REQUEST_URI']);
+                    exit();
                 }
                 $stmt_add_member->close();
-            } else {
-                echo "<script>alert('Usuário já é membro.');</script>";
             }
             $stmt_check_member->close();
-        } else {
-            echo "<script>alert('Usuário não encontrado.');</script>";
         }
     }
     
@@ -180,7 +179,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($user_role === 'admin' || $is_crea
         $stmt_promote->bind_param("iii", $group_id, $member_id, $creator_id);
         $stmt_promote->execute();
         $stmt_promote->close();
-        echo "<script>alert('Membro promovido!'); location.reload();</script>";
+        header("Location: " . $_SERVER['REQUEST_URI']);
+        exit();
     }
     
     if (isset($_POST['demote_member'])) {
@@ -190,7 +190,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($user_role === 'admin' || $is_crea
         $stmt_demote->bind_param("iii", $group_id, $member_id, $creator_id);
         $stmt_demote->execute();
         $stmt_demote->close();
-        echo "<script>alert('Membro rebaixado!'); location.reload();</script>";
+        header("Location: " . $_SERVER['REQUEST_URI']);
+        exit();
     }
     
     // Remover membro
@@ -202,7 +203,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($user_role === 'admin' || $is_crea
             $stmt_remove->bind_param("ii", $group_id, $member_id);
             $stmt_remove->execute();
             $stmt_remove->close();
-            echo "<script>alert('Membro removido!'); location.reload();</script>";
+            header("Location: " . $_SERVER['REQUEST_URI']);
+            exit();
         }
     }
 }
@@ -242,15 +244,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $content = trim($_POST['content'] ?? '');
     
     if (!empty($content)) {
-        $sql_insert = "INSERT INTO messages (chat_id, sender_id, content) VALUES (?, ?, ?)";
-        $stmt_insert = $mysqli->prepare($sql_insert);
-        $stmt_insert->bind_param("iis", $group_id, $user_id, $content);
+        // Verificar se não há mensagem duplicada recente (últimos 2 segundos)
+        $sql_check_duplicate = "SELECT id FROM messages 
+                                WHERE chat_id = ? AND sender_id = ? AND content = ? 
+                                AND timestamp > DATE_SUB(NOW(), INTERVAL 2 SECOND)";
+        $stmt_check = $mysqli->prepare($sql_check_duplicate);
+        $stmt_check->bind_param("iis", $group_id, $user_id, $content);
+        $stmt_check->execute();
+        $result_check = $stmt_check->get_result();
         
-        if ($stmt_insert->execute()) {
-            echo json_encode(['success' => true]);
+        if ($result_check->num_rows == 0) {
+            // Não há duplicata, pode inserir
+            $sql_insert = "INSERT INTO messages (chat_id, sender_id, content) VALUES (?, ?, ?)";
+            $stmt_insert = $mysqli->prepare($sql_insert);
+            $stmt_insert->bind_param("iis", $group_id, $user_id, $content);
+            
+            if ($stmt_insert->execute()) {
+                echo json_encode(['success' => true]);
+            } else {
+                echo json_encode(['success' => false, 'error' => 'Erro ao inserir mensagem']);
+            }
+            $stmt_insert->close();
         } else {
-            echo json_encode(['success' => false]);
+            // Mensagem duplicada detectada
+            echo json_encode(['success' => true, 'duplicate' => true]);
         }
+        $stmt_check->close();
+    } else {
+        echo json_encode(['success' => false, 'error' => 'Conteúdo vazio']);
     }
     exit();
 }
@@ -1014,6 +1035,7 @@ html, body {
     <script>
         let lastMessageCount = 0;
         let shouldScrollToBottom = true;
+        let isSubmitting = false
         const groupId = <?php echo $group_id; ?>;
         const currentUserId = <?php echo $user_id; ?>;
 
@@ -1074,34 +1096,48 @@ html, body {
 
 
         // Função para carregar mensagens
-        function loadMessages() {
-            $.ajax({
-                url: window.location.href,
-                type: 'GET',
-                data: { 
-                    action: 'get_messages',
-                    group_id: groupId
-                },
-                dataType: 'json',
-                success: function(messages) {
-                    if (messages.length !== lastMessageCount) {
-                        const wasAtBottom = isUserAtBottom();
-                        displayMessages(messages);
-                        lastMessageCount = messages.length;
-                        
-                        // Rolar para baixo se estava no final ou se é nova mensagem própria
-                        if (wasAtBottom || (messages.length > 0 && messages[messages.length - 1].is_own)) {
-                            setTimeout(() => scrollToBottom(true), 100);
-                        }
-                        
-                        updateScrollIndicators();
+        let loadMessagesTimeout = null;
+
+function loadMessages() {
+    // Cancelar carregamento anterior se ainda estiver pendente
+    if (loadMessagesTimeout) {
+        clearTimeout(loadMessagesTimeout);
+    }
+    
+    loadMessagesTimeout = setTimeout(function() {
+        $.ajax({
+            url: window.location.href,
+            type: 'GET',
+            data: { 
+                action: 'get_messages',
+                group_id: groupId
+            },
+            dataType: 'json',
+            timeout: 5000,
+            success: function(messages) {
+                if (messages.length !== lastMessageCount) {
+                    const wasAtBottom = isUserAtBottom();
+                    displayMessages(messages);
+                    lastMessageCount = messages.length;
+                    
+                    if (wasAtBottom || (messages.length > 0 && messages[messages.length - 1].is_own)) {
+                        setTimeout(() => scrollToBottom(true), 100);
                     }
-                },
-                error: function(xhr, status, error) {
+                    
+                    updateScrollIndicators();
+                }
+            },
+            error: function(xhr, status, error) {
+                if (status !== 'timeout') {
                     console.error('Erro ao carregar mensagens:', error);
                 }
-            });
-        }
+            },
+            complete: function() {
+                loadMessagesTimeout = null;
+            }
+        });
+    }, 100); // Debounce de 100ms
+}
 
         // Função para exibir mensagens
         function displayMessages(messages) {
@@ -1154,56 +1190,81 @@ function escapeHtml(text) {
 
         // Enviar mensagem
         $('#message-form').on('submit', function(e) {
-            e.preventDefault();
-            
-            const content = $('input[name="content"]').val().trim();
-            
-            if (content) {
-                $.ajax({
-                    url: window.location.href,
-                    type: 'POST',
-                    data: { 
-                        action: 'send_message',
-                        content: content,
-                        group_id: groupId
-                    },
-                    dataType: 'json',
-                    success: function(response) {
-                        if (response.success) {
-                            $('input[name="content"]').val('');
-                            shouldScrollToBottom = true;
-                            loadMessages();
-                        }
-                    },
-                    error: function(xhr, status, error) {
-                        console.error('Erro ao enviar mensagem:', error);
-                        alert('Erro ao enviar mensagem');
+    e.preventDefault();
+    
+    // Prevenir múltiplos envios
+    if (isSubmitting) {
+        return false;
+    }
+    
+    const content = $('input[name="content"]').val().trim();
+    
+    if (content) {
+        isSubmitting = true; // Bloquear novos envios
+        const $submitBtn = $('.message-button');
+        const $input = $('input[name="content"]');
+        
+        // Desabilitar botão e input durante o envio
+        $submitBtn.prop('disabled', true);
+        $input.prop('disabled', true);
+        
+        $.ajax({
+            url: window.location.href,
+            type: 'POST',
+            data: { 
+                action: 'send_message',
+                content: content,
+                group_id: groupId
+            },
+            dataType: 'json',
+            timeout: 10000, // Timeout de 10 segundos
+            success: function(response) {
+                if (response.success) {
+                    if (!response.duplicate) {
+                        $input.val(''); // Limpar apenas se não for duplicata
+                        shouldScrollToBottom = true;
+                        loadMessages();
                     }
-                });
+                } else {
+                    console.error('Erro do servidor:', response.error);
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('Erro ao enviar mensagem:', error);
+                // Em caso de erro, não limpar o input para não perder a mensagem
+            },
+            complete: function() {
+                // Reabilitar controles após o envio (sucesso ou erro)
+                isSubmitting = false;
+                $submitBtn.prop('disabled', false);
+                $input.prop('disabled', false);
+                $input.focus();
             }
         });
+    }
+});
 
         // Enviar mensagem com Enter
         $('input[name="content"]').on('keypress', function(e) {
-            if (e.which === 13) {
-                $('#message-form').submit();
-            }
-        });
+    if (e.which === 13 && !isSubmitting) {
+        e.preventDefault(); // Prevenir comportamento padrão
+        $('#message-form').submit();
+    }
+});
 
         // Inicialização
         $(document).ready(function() {
-            loadMessages();
-            $('input[name="content"]').focus();
-            
-            // Carregar mensagens periodicamente
-            setInterval(loadMessages, 2000);
-            
-            // Scroll inicial após um pequeno delay
-            setTimeout(() => {
-                scrollToBottom(true);
-                updateScrollIndicators();
-            }, 500);
-        });
-    </script>
+    loadMessages();
+    $('input[name="content"]').focus();
+    
+    // Carregar mensagens a cada 3 segundos em vez de 2
+    setInterval(loadMessages, 3000);
+    
+    setTimeout(() => {
+        scrollToBottom(true);
+        updateScrollIndicators();
+    }, 500);
+});
+</script>
 </body>
 </html>
