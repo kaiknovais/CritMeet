@@ -198,46 +198,101 @@ function getProfileImageUrl($image_data) {
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Editar Perfil - CritMeet</title>
+    <title>Editar Perfil</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="../../../assets/mobile.css" media="screen and (max-width: 600px)">
     <link rel="stylesheet" href="../../../assets/desktop.css" media="screen and (min-width: 601px)">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
     <style>
-        .image-preview {
-            max-width: 200px;
-            max-height: 200px;
+        .profile-container {
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 2rem;
+        }
+        .profile-image {
+            width: 200px;
+            height: 200px;
             border-radius: 50%;
             object-fit: cover;
-            border: 3px solid #dee2e6;
-            margin: 10px 0;
+            border: 5px solid #dee2e6;
+            margin-bottom: 1rem;
             box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-            transition: transform 0.2s ease;
+        }
+        .profile-header {
+            text-align: center;
+            margin-bottom: 2rem;
+            color: black;
+        }
+        .profile-table {
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .profile-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            width: 30%;
+            padding: 1rem;
+            border: none;
+        }
+        .profile-table td {
+            padding: 1rem;
+            border: none;
+            word-wrap: break-word;
+        }
+        .profile-table tr:not(:last-child) {
+            border-bottom: 1px solid #dee2e6;
+        }
+        .btn-edit {
+            margin-top: 1rem;
+        }
+        .admin-badge {
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        .tags-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            align-items: flex-start;
+        }
+        .preference-tag {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            margin: 0.1rem;
+            background-color: #007bff;
+            color: white;
+            border-radius: 0.375rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+        .no-preferences {
+            color: #6c757d;
+            font-style: italic;
         }
         
-        .image-preview:hover {
-            transform: scale(1.05);
-        }
-        
+        /* Estilos específicos para edição */
         .file-input-wrapper {
             position: relative;
             display: inline-block;
             cursor: pointer;
-            background: linear-gradient(135deg, #007bff, #0056b3);
+            background: #007bff;
             color: white;
-            padding: 12px 20px;
-            border-radius: 8px;
-            margin: 10px 0;
-            transition: all 0.3s ease;
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem;
+            margin: 0.5rem 0;
+            transition: background-color 0.2s ease;
             border: none;
-            box-shadow: 0 2px 4px rgba(0,123,255,0.3);
         }
         
         .file-input-wrapper:hover {
-            background: linear-gradient(135deg, #0056b3, #004085);
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0,123,255,0.4);
+            background: #0056b3;
         }
         
         .file-input-wrapper input[type=file] {
@@ -245,15 +300,11 @@ function getProfileImageUrl($image_data) {
             left: -9999px;
         }
         
-        .form-group {
-            margin: 20px 0;
-        }
-        
         .form-control {
-            margin: 5px 0;
-            border-radius: 8px;
-            border: 2px solid #dee2e6;
-            transition: border-color 0.2s ease;
+            border-radius: 0.375rem;
+            border: 1px solid #dee2e6;
+            padding: 0.75rem;
+            margin-bottom: 1rem;
         }
         
         .form-control:focus {
@@ -262,301 +313,190 @@ function getProfileImageUrl($image_data) {
         }
         
         .alert {
-            margin: 15px 0;
-            border-radius: 8px;
-            border: none;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        
-        .card {
-            border: none;
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-            overflow: hidden;
-        }
-        
-        .card-header {
-            background: linear-gradient(135deg, #007bff, #0056b3);
-            color: white;
-            border: none;
-            padding: 20px;
-        }
-        
-        .card-body {
-            padding: 30px;
-        }
-        
-        .btn-primary {
-            background: linear-gradient(135deg, #007bff, #0056b3);
-            border: none;
-            border-radius: 8px;
-            padding: 12px 24px;
-            font-weight: 500;
-            transition: all 0.3s ease;
-            box-shadow: 0 2px 4px rgba(0,123,255,0.3);
-        }
-        
-        .btn-primary:hover {
-            background: linear-gradient(135deg, #0056b3, #004085);
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0,123,255,0.4);
-        }
-        
-        .btn-secondary {
-            border-radius: 8px;
-            padding: 12px 24px;
-            font-weight: 500;
-        }
-        
-        .preferences-section {
-            background: #f8f9fa;
-            border-radius: 12px;
-            padding: 20px;
-            margin: 15px 0;
-            border: 1px solid #dee2e6;
-        }
-        
-        .preferences-title {
-            color: #495057;
-            font-weight: 600;
-            margin-bottom: 15px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        
-        .form-text {
-            color: #6c757d;
-            font-size: 0.875rem;
-            margin-top: 5px;
-        }
-        
-        /* Animações */
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-        
-        .card {
-            animation: fadeIn 0.6s ease-out;
-        }
-        
-        /* Responsividade */
-        @media (max-width: 768px) {
-            .card-body {
-                padding: 20px;
-            }
-            
-            .preferences-section {
-                padding: 15px;
-            }
+            border-radius: 0.375rem;
+            margin-bottom: 1rem;
         }
     </style>
 </head>
 <body>
-    <?php include 'header.php'; ?>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    
-    <nav class="navbar navbar-expand-lg bg-body-tertiary" data-bs-theme="dark">
-        <div class="container-fluid">
-            <a class="navbar-brand" href="../homepage/">
-                <i class="bi bi-dice-6"></i> CritMeet
-            </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarSupportedContent">
-                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                    <li class="nav-item"><a class="nav-link" href="../homepage/">Home</a></li>
-                    <li class="nav-item"><a class="nav-link" href="../Profile/">Meu Perfil</a></li>
-                    <li class="nav-item"><a class="nav-link" href="../rpg_info">RPG</a></li>
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Mais...</a>
-                        <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="../settings/">Configurações</a></li>
-                            <li><a class="dropdown-item" href="../friends/">Conexões</a></li>
-                            <li><a class="dropdown-item" href="../chat/">Chat</a></li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="../../components/Logout/">Logout</a></li>
-                            <?php if ($is_admin): ?>
-                                <li><a class="dropdown-item text-danger" href="../admin/">Lista de Usuários</a></li>
-                            <?php endif; ?>
-                        </ul>
-                    </li>
-                </ul>
-            </div>
-        </div>
-    </nav>
+<?php include 'header.php'; ?>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
 
-    <div class="container">
-        <div class="row justify-content-center">
-            <div class="col-md-10 col-lg-8">
-                <div class="card mt-4">
-                    <div class="card-header">
-                        <h3 class="text-center mb-0">
-                            <i class="bi bi-person-gear"></i> Editar Perfil
-                        </h3>
-                        <p class="text-center mb-0 mt-2 opacity-75">
-                            Personalize suas informações e preferências de RPG
-                        </p>
+<nav class="navbar navbar-expand-lg bg-body-tertiary" data-bs-theme="dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="../homepage/">CritMeet</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarSupportedContent">
+            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                <li class="nav-item"><a class="nav-link" href="../homepage/">Home</a></li>
+                <li class="nav-item"><a class="nav-link" href="../Profile/">Meu Perfil</a></li>
+                <li class="nav-item"><a class="nav-link" href="../rpg_info">RPG</a></li>
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Mais...</a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="../settings/">Configurações</a></li>
+                        <li><a class="dropdown-item" href="../friends/">Conexões</a></li>
+                        <li><a class="dropdown-item" href="../chat/">Chat</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="../../components/Logout/">Logout</a></li>
+                        <?php if ($is_admin): ?>
+                            <li><a class="dropdown-item text-danger" href="../admin/">Lista de Usuários</a></li>
+                        <?php endif; ?>
+                    </ul>
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>
+
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="profile-container">
+                <div class="profile-header">
+                    <img src="<?php echo getProfileImageUrl($user['image']); ?>" 
+                         alt="Imagem de Perfil" 
+                         class="profile-image" 
+                         id="imagePreview"
+                         onerror="this.src='default-avatar.png'" />
+                    
+                    <h2 class="mb-2">Editar Perfil</h2>
+                    <p class="text-muted mb-0">Atualize suas informações pessoais</p>
+                </div>
+
+                <?php if (isset($success_message)): ?>
+                    <div class="alert alert-success d-flex align-items-center">
+                        <i class="bi bi-check-circle-fill me-2"></i>
+                        <div><?php echo $success_message; ?></div>
+                    </div>
+                <?php endif; ?>
+                
+                <?php if (isset($error_message)): ?>
+                    <div class="alert alert-danger d-flex align-items-center">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                        <div><?php echo $error_message; ?></div>
+                    </div>
+                <?php endif; ?>
+
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0"><i class="bi bi-pencil-square"></i> Editar Informações do Perfil</h5>
                     </div>
                     <div class="card-body">
-                        <?php if (isset($success_message)): ?>
-                            <div class="alert alert-success d-flex align-items-center">
-                                <i class="bi bi-check-circle-fill me-2"></i>
-                                <div><?php echo $success_message; ?></div>
-                            </div>
-                        <?php endif; ?>
-                        
-                        <?php if (isset($error_message)): ?>
-                            <div class="alert alert-danger d-flex align-items-center">
-                                <i class="bi bi-exclamation-triangle-fill me-2"></i>
-                                <div><?php echo $error_message; ?></div>
-                            </div>
-                        <?php endif; ?>
-
-                        <div class="text-center">
-                            <img src="<?php echo getProfileImageUrl($user['image']); ?>" 
-                                 alt="Imagem de Perfil" 
-                                 class="image-preview" 
-                                 id="imagePreview" />
-                        </div>
-
                         <form method="POST" action="" enctype="multipart/form-data">
-                            <div class="form-group text-center">
-                                <label class="file-input-wrapper">
-                                    <i class="bi bi-camera-fill"></i> Escolher Nova Imagem
-                                    <input type="file" name="image" accept="image/*" id="imageInput" />
-                                </label>
-                                <div class="form-text">
-                                    <i class="bi bi-info-circle"></i>
-                                    Formatos aceitos: JPEG, PNG, GIF, WebP (máximo 5MB)
-                                </div>
-                            </div>
-
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <div class="form-group">
-                                        <label for="name" class="form-label">
-                                            <i class="bi bi-person"></i> Nome Completo:
+                            <table class="table table-striped profile-table mb-0">
+                                <tr>
+                                    <th><i class="bi bi-camera-fill"></i> Imagem de Perfil:</th>
+                                    <td>
+                                        <label class="file-input-wrapper">
+                                            <i class="bi bi-upload"></i> Escolher Nova Imagem
+                                            <input type="file" name="image" accept="image/*" id="imageInput" />
                                         </label>
+                                        <div class="form-text">
+                                            Formatos aceitos: JPEG, PNG, GIF, WebP (máximo 5MB)
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th><i class="bi bi-person"></i> Nome Completo:</th>
+                                    <td>
                                         <input type="text" 
                                                class="form-control" 
-                                               id="name"
                                                name="name" 
                                                placeholder="Seu nome completo" 
                                                value="<?php echo htmlspecialchars($user['name'] ?? ''); ?>" />
-                                    </div>
-                                </div>
-
-                                <div class="col-md-6">
-                                    <div class="form-group">
-                                        <label for="gender" class="form-label">
-                                            <i class="bi bi-gender-ambiguous"></i> Gênero:
-                                        </label>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th><i class="bi bi-gender-ambiguous"></i> Gênero:</th>
+                                    <td>
                                         <input type="text" 
                                                class="form-control" 
-                                               id="gender"
                                                name="gender" 
                                                placeholder="Ex: Masculino, Feminino, Não-binário..." 
                                                value="<?php echo htmlspecialchars($user['gender'] ?? ''); ?>" />
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="form-group">
-                                <label for="pronouns" class="form-label">
-                                    <i class="bi bi-chat-quote"></i> Pronomes:
-                                </label>
-                                <input type="text" 
-                                       class="form-control" 
-                                       id="pronouns"
-                                       name="pronouns" 
-                                       placeholder="Ex: ele/dele, ela/dela, elu/delu, they/them..." 
-                                       value="<?php echo htmlspecialchars($user['pronouns'] ?? ''); ?>" />
-                                <div class="form-text">
-                                    Como você gostaria de ser referido/a durante as sessões?
-                                </div>
-                            </div>
-
-                            <div class="preferences-section">
-                                <div class="preferences-title">
-                                    <i class="bi bi-controller"></i> 
-                                    Preferências de RPG
-                                </div>
-                                <p class="form-text mb-3">
-                                    <i class="bi bi-lightbulb"></i>
-                                    Selecione até 5 tags que melhor representem seu estilo de jogo e preferências. 
-                                    Isso ajudará outros jogadores a encontrarem você!
-                                </p>
-                                <?php 
-                                // Usar as preferências atuais do usuário
-                                $current_preferences = isset($user['preferences']) ? $user['preferences'] : '';
-                                RPGTags::renderTagSelector($current_preferences, 'preferences'); 
-                                ?>
-                            </div>
-
-                            <div class="form-group text-center">
-                                <button type="submit" class="btn btn-primary me-2">
-                                    <i class="bi bi-check-lg"></i> Salvar Alterações
-                                </button>
-                                <a href="../Profile/" class="btn btn-secondary">
-                                    <i class="bi bi-arrow-left"></i> Cancelar
-                                </a>
-                            </div>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th><i class="bi bi-chat-quote"></i> Pronomes:</th>
+                                    <td>
+                                        <input type="text" 
+                                               class="form-control" 
+                                               name="pronouns" 
+                                               placeholder="Ex: ele/dele, ela/dela, elu/delu..." 
+                                               value="<?php echo htmlspecialchars($user['pronouns'] ?? ''); ?>" />
+                                        <div class="form-text">
+                                            Como você gostaria de ser referido/a durante as sessões?
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th><i class="bi bi-controller"></i> Preferências de Jogo:</th>
+                                    <td>
+                                        <div class="mb-2">
+                                            <?php 
+                                            // Usar as preferências atuais do usuário
+                                            $current_preferences = isset($user['preferences']) ? $user['preferences'] : '';
+                                            RPGTags::renderTagSelector($current_preferences, 'preferences'); 
+                                            ?>
+                                        </div>
+                                        <div class="form-text">
+                                            Selecione até 5 tags que melhor representem seu estilo de jogo
+                                        </div>
+                                    </td>
+                                </tr>
+                            </table>
                         </form>
                     </div>
+                </div>
+
+                <div class="text-center btn-edit">
+                    <button type="submit" form="editForm" class="btn btn-primary btn-lg me-2">
+                        <i class="bi bi-check-lg"></i> Salvar Alterações
+                    </button>
+                    <a href="../Profile/" class="btn btn-secondary btn-lg">
+                        <i class="bi bi-arrow-left"></i> Cancelar
+                    </a>
                 </div>
             </div>
         </div>
     </div>
+</div>
 
-    <script>
-        // Preview da imagem antes do upload
-        document.getElementById('imageInput').addEventListener('change', function(event) {
-            const file = event.target.files[0];
-            if (file) {
-                // Validar tamanho do arquivo
-                if (file.size > 5 * 1024 * 1024) {
-                    alert('Arquivo muito grande! Máximo permitido: 5MB');
-                    this.value = '';
-                    return;
-                }
-                
-                // Validar tipo do arquivo
-                const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
-                if (!allowedTypes.includes(file.type)) {
-                    alert('Tipo de arquivo não permitido! Use apenas JPEG, PNG, GIF ou WebP.');
-                    this.value = '';
-                    return;
-                }
-                
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    document.getElementById('imagePreview').src = e.target.result;
-                };
-                reader.readAsDataURL(file);
-            }
-        });
+<script>
+// Preview da imagem antes do upload
+document.getElementById('imageInput').addEventListener('change', function(event) {
+    const file = event.target.files[0];
+    if (file) {
+        // Validar tamanho do arquivo
+        if (file.size > 5 * 1024 * 1024) {
+            alert('Arquivo muito grande! Máximo permitido: 5MB');
+            this.value = '';
+            return;
+        }
         
-        // Adicionar tooltips aos campos
-        document.addEventListener('DOMContentLoaded', function() {
-            // Inicializar tooltips do Bootstrap se disponível
-            if (typeof bootstrap !== 'undefined' && bootstrap.Tooltip) {
-                var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-                var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-                    return new bootstrap.Tooltip(tooltipTriggerEl);
-                });
-            }
-        });
-    </script>
+        // Validar tipo do arquivo
+        const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+        if (!allowedTypes.includes(file.type)) {
+            alert('Tipo de arquivo não permitido! Use apenas JPEG, PNG, GIF ou WebP.');
+            this.value = '';
+            return;
+        }
+        
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            document.getElementById('imagePreview').src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    }
+});
 
-    <?php include 'footer.php'; ?>
+// Adicionar ID ao formulário para o botão submit funcionar
+document.querySelector('form').id = 'editForm';
+</script>
+
+<?php include 'footer.php'; ?>
 </body>
 </html>
