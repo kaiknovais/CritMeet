@@ -23,7 +23,7 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 $user_id = $_SESSION['user_id'];
-$chat_id = $_GET['chat_id'] ?? null;
+$chat_id = $_GET['group_id '] ?? null;
 
 if (!$chat_id) {
     echo "<script>alert('ID do grupo não fornecido.'); window.location.href='../groups/';</script>";
