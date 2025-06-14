@@ -63,9 +63,11 @@ phpunit.result.cache
 *.crt
 *.key
 
+# === UPLOADS / ARQUIVOS DE USUÁRIO ===
+/uploads
+
 # === ARQUIVOS PERSONALIZADOS DO SISTEMA ===
 /*.sql
 /*.sql.gz
 *.tar.gz
 *.zip
-
