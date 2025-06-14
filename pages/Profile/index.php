@@ -65,6 +65,7 @@ function getProfileImageUrl($image_data) {
         .profile-header {
             text-align: center;
             margin-bottom: 2rem;
+            color: black;
         }
         .profile-table {
             background: white;
