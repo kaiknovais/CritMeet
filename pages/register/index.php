@@ -1,154 +1,226 @@
 <?php
+// pages/Profile/index.php - Versão atualizada com tags
 require_once __DIR__ . '/../../config.php';
-require_once __DIR__ . '/../../components/tags/index.php';
+require_once __DIR__ . '/../../components/Tags/index.php';
+session_start();
+
+$user_id = $_SESSION['user_id'] ?? null;
+$is_admin = false;
+$user = null; 
+
+if ($user_id) {
+    $query = "SELECT username, name, image, gender, pronouns, preferences, admin FROM users WHERE id = ?";
+    $stmt = $mysqli->prepare($query);
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    if ($result && $row = $result->fetch_assoc()) {
+        $user = $row;
+        $is_admin = $row['admin'] == 1; 
+    }
+    $stmt->close();
+}
+
+// Função para exibir imagem do perfil
+function getProfileImageUrl($image_data) {
+    if (empty($image_data)) {
+        return 'default-avatar.png';
+    }
+    
+    // Verificar se é base64 (dados antigos)
+    if (preg_match('/^[a-zA-Z0-9\/\r\n+]*={0,2}$/', $image_data)) {
+        return 'data:image/jpeg;base64,' . $image_data;
+    } else {
+        // É um nome de arquivo
+        return '../../uploads/profiles/' . $image_data;
+    }
+}
 ?>
+
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
+    <title>Perfil de Usuário</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Registrar</title>
     <link rel="stylesheet" href="../../../assets/mobile.css" media="screen and (max-width: 600px)">
     <link rel="stylesheet" href="../../../assets/desktop.css" media="screen and (min-width: 601px)">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <style>
+        .profile-container {
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 2rem;
+        }
+        .profile-image {
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 5px solid #dee2e6;
+            margin-bottom: 1rem;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .profile-header {
+            text-align: center;
+            margin-bottom: 2rem;
+            color: black;
+        }
+        .profile-table {
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .profile-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            width: 30%;
+            padding: 1rem;
+            border: none;
+        }
+        .profile-table td {
+            padding: 1rem;
+            border: none;
+            word-wrap: break-word;
+        }
+        .profile-table tr:not(:last-child) {
+            border-bottom: 1px solid #dee2e6;
+        }
+        .btn-edit {
+            margin-top: 1rem;
+        }
+        .admin-badge {
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        .tags-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            align-items: flex-start;
+        }
+        .preference-tag {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            margin: 0.1rem;
+            background-color: #007bff;
+            color: white;
+            border-radius: 0.375rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+        .no-preferences {
+            color: #6c757d;
+            font-style: italic;
+        }
+    </style>
 </head>
 <body>
-    <?php include 'header.php'; ?>
+<?php include 'header.php'; ?>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
 
-    <div class="container">
-        <div class="row justify-content-center">
-            <div class="col-md-8 col-lg-6">
-                <div class="card mt-4">
-                    <div class="card-header">
-                        <h1 class="text-center mb-0">CritMeet - Registro</h1>
+<nav class="navbar navbar-expand-lg bg-body-tertiary" data-bs-theme="dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="../homepage/">CritMeet</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarSupportedContent">
+            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                <li class="nav-item"><a class="nav-link " href="../homepage/">Home</a></li>
+                <li class="nav-item"><a class="nav-link active" href="../Profile/">Meu Perfil</a></li>
+                <li class="nav-item"><a class="nav-link" href="../rpg_info">RPG</a></li>
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Mais...</a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="../settings/">Configurações</a></li>
+                        <li><a class="dropdown-item" href="../friends/">Conexões</a></li>
+                        <li><a class="dropdown-item" href="../chat/">Chat</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="../../components/Logout/">Logout</a></li>
+                        <?php if ($is_admin): ?>
+                            <li><a class="dropdown-item text-danger" href="../admin/">Lista de Usuários</a></li>
+                        <?php endif; ?>
+                    </ul>
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>
+
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="profile-container">
+                <div class="profile-header">
+                    <img src="<?php echo getProfileImageUrl($user['image']); ?>" 
+                         alt="Imagem de Perfil" 
+                         class="profile-image" 
+                         onerror="this.src='default-avatar.png'" />
+                    
+                    <h2 class="mb-2">
+                        <?php echo htmlspecialchars($user['username']); ?>
+                        <?php if ($is_admin): ?>
+                            <span class="badge bg-danger admin-badge ms-2">
+                                <i class="bi bi-shield-check"></i> Admin
+                            </span>
+                        <?php endif; ?>
+                    </h2>
+                    
+                    <?php if (!empty($user['name']) && $user['name'] !== $user['username']): ?>
+                        <p class="text-muted mb-0"><?php echo htmlspecialchars($user['name']); ?></p>
+                    <?php endif; ?>
+                </div>
+
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0"><i class="bi bi-person-circle"></i> Informações do Perfil</h5>
                     </div>
-                    <div class="card-body">
-                        <form method="POST" action="">
-                            <div class="mb-3">
-                                <label for="username" class="form-label">Username</label>
-                                <input type="text" class="form-control" id="username" name="username" 
-                                       placeholder="Username" 
-                                       value="<?php echo isset($_POST['username']) ? htmlspecialchars($_POST['username']) : ''; ?>" 
-                                       required />
-                            </div>
-
-                            <div class="mb-3">
-                                <label for="name" class="form-label">Nome</label>
-                                <input type="text" class="form-control" id="name" name="name" 
-                                       placeholder="Nome" 
-                                       value="<?php echo isset($_POST['name']) ? htmlspecialchars($_POST['name']) : ''; ?>" 
-                                       required />
-                            </div>
-
-                            <div class="mb-3">
-                                <label for="gender" class="form-label">Gênero</label>
-                                <input type="text" class="form-control" id="gender" name="gender" 
-                                       placeholder="Gênero" 
-                                       value="<?php echo isset($_POST['gender']) ? htmlspecialchars($_POST['gender']) : ''; ?>" 
-                                       required />
-                            </div>
-
-                            <div class="mb-3">
-                                <label for="pronouns" class="form-label">Pronomes</label>
-                                <input type="text" class="form-control" id="pronouns" name="pronouns" 
-                                       placeholder="Ex: ele/dele, ela/dela, elu/delu" 
-                                       value="<?php echo isset($_POST['pronouns']) ? htmlspecialchars($_POST['pronouns']) : ''; ?>" 
-                                       required />
-                            </div>
-
-                            <div class="mb-3">
-                                <label for="email" class="form-label">Email</label>
-                                <input type="email" class="form-control" id="email" name="email" 
-                                       placeholder="Email" 
-                                       value="<?php echo isset($_POST['email']) ? htmlspecialchars($_POST['email']) : ''; ?>" 
-                                       required />
-                            </div>
-
-                            <div class="mb-3">
-                                <label for="password" class="form-label">Senha</label>
-                                <input type="password" class="form-control" id="password" name="password" 
-                                       placeholder="Senha" required />
-                            </div>
-
-                            <div class="mb-3">
-                                <label for="confirm_password" class="form-label">Confirmar Senha</label>
-                                <input type="password" class="form-control" id="confirm_password" name="confirm_password" 
-                                       placeholder="Confirmar Senha" required />
-                            </div>
-
-                            <div class="mb-3">
-                                <label class="form-label">Preferências de RPG</label>
-                                <p class="form-text">Selecione até 5 tags que representem suas preferências de jogo:</p>
-                                <?php 
-                                $selected_preferences = isset($_POST['preferences']) ? $_POST['preferences'] : '';
-                                RPGTags::renderTagSelector($selected_preferences, 'preferences'); 
-                                ?>
-                            </div>
-
-                            <div class="d-grid gap-2">
-                                <button type="submit" class="btn btn-primary">
-                                    <i class="bi bi-person-plus"></i> Registrar
-                                </button>
-                                <a href="../login/" class="btn btn-outline-secondary">
-                                    <i class="bi bi-arrow-left"></i> Voltar ao Login
-                                </a>
-                            </div>
-                        </form>
+                    <div class="card-body p-0">
+                        <table class="table table-striped profile-table mb-0">
+                            <tr>
+                                <th><i class="bi bi-gender-ambiguous"></i> Gênero:</th>
+                                <td><?php echo !empty($user['gender']) ? htmlspecialchars($user['gender']) : '<span class="text-muted">Não informado</span>'; ?></td>
+                            </tr>
+                            <tr>
+                                <th><i class="bi bi-chat-quote"></i> Pronomes:</th>
+                                <td><?php echo !empty($user['pronouns']) ? htmlspecialchars($user['pronouns']) : '<span class="text-muted">Não informado</span>'; ?></td>
+                            </tr>
+                            <tr>
+                                <th><i class="bi bi-controller"></i> Preferências de Jogo:</th>
+                                <td>
+                                    <div class="tags-container">
+                                        <?php 
+                                        if (!empty($user['preferences'])) {
+                                            RPGTags::renderTagsDisplay($user['preferences'], 10);
+                                        } else {
+                                            echo '<span class="no-preferences">Nenhuma preferência informada</span>';
+                                        }
+                                        ?>
+                                    </div>
+                                </td>
+                            </tr>
+                        </table>
                     </div>
+                </div>
+
+                <div class="text-center btn-edit">
+                    <a href="../editprofile/" class="btn btn-primary btn-lg">
+                        <i class="bi bi-pencil-square"></i> Editar Perfil
+                    </a>
                 </div>
             </div>
         </div>
     </div>
+</div>
 
-    <?php include 'footer.php'; ?>
-    
-    <?php
-    if ($_SERVER["REQUEST_METHOD"] == "POST") {
-        $username = trim($_POST["username"]);
-        $name = trim($_POST["name"]);
-        $gender = trim($_POST["gender"]);
-        $pronouns = trim($_POST["pronouns"]);
-        $email = trim($_POST["email"]);
-        $password = $_POST["password"];
-        $preferences = isset($_POST["preferences"]) ? $_POST["preferences"] : '';
-
-        // Validações básicas
-        if ($password !== $_POST["confirm_password"]) {
-            echo "<script>alert('As senhas não coincidem.');</script>";
-        } else if (strlen($password) < 6) {
-            echo "<script>alert('A senha deve ter pelo menos 6 caracteres.');</script>";
-        } else if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            echo "<script>alert('Email inválido.');</script>";
-        } else {
-            // Hash da senha
-            $hashed_password = password_hash($password, PASSWORD_DEFAULT);
-            
-            $stmt = $mysqli->prepare("INSERT INTO users (username, name, gender, pronouns, email, password, preferences) VALUES (?, ?, ?, ?, ?, ?, ?)");
-            $stmt->bind_param("sssssss", $username, $name, $gender, $pronouns, $email, $hashed_password, $preferences);
-
-            try {
-                if ($stmt->execute()) {
-                    echo "<script>alert('Cadastro realizado com sucesso!'); window.location.href='../login/';</script>";
-                }
-            } catch (mysqli_sql_exception $e) {
-                if ($e->getCode() == 1062) { 
-                    // Verificar se é email ou username duplicado
-                    if (strpos($e->getMessage(), 'email') !== false) {
-                        echo "<script>alert('Erro: O e-mail já está cadastrado.');</script>";
-                    } else if (strpos($e->getMessage(), 'username') !== false) {
-                        echo "<script>alert('Erro: O username já está em uso.');</script>";
-                    } else {
-                        echo "<script>alert('Erro: Dados já cadastrados.');</script>";
-                    }
-                } else {
-                    echo "<script>alert('Erro ao cadastrar: " . addslashes($e->getMessage()) . "');</script>";
-                }
-            } finally {
-                $stmt->close();
-            }
-        }
-    }
-    ?>
+<?php include 'footer.php'; ?>
 </body>
 </html>

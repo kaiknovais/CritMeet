@@ -1,6 +1,7 @@
 <?php
-// pages/Profile/index.php - Versão atualizada
+// pages/Profile/index.php - Versão atualizada com tags
 require_once __DIR__ . '/../../config.php';
+require_once __DIR__ . '/../../components/Tags/index.php';
 session_start();
 
 $user_id = $_SESSION['user_id'] ?? null;
@@ -99,6 +100,26 @@ function getProfileImageUrl($image_data) {
             50% { transform: scale(1.05); }
             100% { transform: scale(1); }
         }
+        .tags-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            align-items: flex-start;
+        }
+        .preference-tag {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            margin: 0.1rem;
+            background-color: #007bff;
+            color: white;
+            border-radius: 0.375rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+        .no-preferences {
+            color: #6c757d;
+            font-style: italic;
+        }
     </style>
 </head>
 <body>
@@ -175,11 +196,15 @@ function getProfileImageUrl($image_data) {
                             <tr>
                                 <th><i class="bi bi-controller"></i> Preferências de Jogo:</th>
                                 <td>
-                                    <?php if (!empty($user['preferences'])): ?>
-                                        <div style="white-space: pre-wrap;"><?php echo htmlspecialchars($user['preferences']); ?></div>
-                                    <?php else: ?>
-                                        <span class="text-muted">Nenhuma preferência informada</span>
-                                    <?php endif; ?>
+                                    <div class="tags-container">
+                                        <?php 
+                                        if (!empty($user['preferences'])) {
+                                            RPGTags::renderTagsDisplay($user['preferences'], 10);
+                                        } else {
+                                            echo '<span class="no-preferences">Nenhuma preferência informada</span>';
+                                        }
+                                        ?>
+                                    </div>
                                 </td>
                             </tr>
                         </table>

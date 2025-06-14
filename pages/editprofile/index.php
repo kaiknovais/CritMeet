@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/../../config.php';
-require_once __DIR__ . '/../../components/tags/index.php';
+require_once __DIR__ . '/../../components/Tags/index.php';
 session_start();
 
 $user_id = $_SESSION['user_id'] ?? null;
@@ -332,12 +332,13 @@ function getProfileImageUrl($image_data) {
                             </div>
 
                             <div class="form-group">
-                                <label for="preferences" class="form-label">Preferências de Jogo:</label>
-                                <textarea class="form-control" 
-                                          id="preferences"
-                                          name="preferences" 
-                                          rows="3"
-                                          placeholder="Descreva seus jogos favoritos, sistemas de RPG preferidos, etc."><?php echo htmlspecialchars($user['preferences'] ?? ''); ?></textarea>
+                                <label class="form-label">Preferências de RPG:</label>
+                                <p class="form-text">Selecione até 5 tags que representem suas preferências de jogo:</p>
+                                <?php 
+                                // Usar as preferências atuais do usuário
+                                $current_preferences = isset($user['preferences']) ? $user['preferences'] : '';
+                                RPGTags::renderTagSelector($current_preferences, 'preferences'); 
+                                ?>
                             </div>
 
                             <div class="form-group text-center">
