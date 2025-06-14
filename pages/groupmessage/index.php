@@ -24,7 +24,12 @@ if (!isset($_SESSION['user_id'])) {
 
 $user_id = $_SESSION['user_id'];
 
+// Aceitar tanto group_id quanto chat_id para compatibilidade
 $group_id = filter_input(INPUT_GET, 'group_id', FILTER_VALIDATE_INT);
+if (!$group_id) {
+    $group_id = filter_input(INPUT_GET, 'chat_id', FILTER_VALIDATE_INT);
+}
+
 if (!$group_id) {
     echo "<script>alert('ID do grupo inválido.'); window.location.href='../chat/';</script>";
     exit();
@@ -43,6 +48,14 @@ function getProfileImageUrl($image_data) {
         // É um nome de arquivo
         return '../../uploads/profiles/' . $image_data;
     }
+}
+
+
+function getGroupImageUrl($image_data) {
+    if (empty($image_data)) {
+        return null;
+    }
+    return '../../uploads/groups/' . $image_data;
 }
 
 // Verificar se o usuário é membro do grupo
@@ -244,12 +257,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
 // Se for requisição AJAX para buscar mensagens
 if (isset($_GET['action']) && $_GET['action'] === 'get_messages') {
+    // Adicione esta linha para debug:
+    error_log("Buscando mensagens para grupo: " . $group_id);
+    
     $sql_messages = "SELECT m.sender_id, m.content, m.timestamp, u.username, u.image 
                      FROM messages m
                      JOIN users u ON m.sender_id = u.id 
                      WHERE m.chat_id = ? 
                      ORDER BY m.timestamp ASC";
-    
     $stmt_messages = $mysqli->prepare($sql_messages);
     $stmt_messages->bind_param("i", $group_id);
     $stmt_messages->execute();
@@ -846,10 +861,9 @@ html, body {
                     <div class="chat-header-left">
                     <div class="group-avatar">
     <?php 
-    $group_image_url = getGroupImageUrl($group_image);
-    if ($group_image_url && file_exists('../../uploads/groups/' . $group_image)): 
+    if (!empty($group_image) && file_exists('../../uploads/groups/' . $group_image)): 
     ?>
-        <img src="<?php echo $group_image_url; ?>" alt="Grupo" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">
+        <img src="../../uploads/groups/<?php echo htmlspecialchars($group_image); ?>" alt="Grupo" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">
     <?php else: ?>
         <i class="bi bi-people-fill"></i>
     <?php endif; ?>
@@ -1036,7 +1050,13 @@ html, body {
             $container.toggleClass('has-scroll-top', hasScrollTop);
             $container.toggleClass('has-scroll-bottom', hasScrollBottom);
         }
-
+        
+        function getGroupImageUrl($image_data) {
+    if (empty($image_data)) {
+        return null;
+    }
+    return '../../uploads/groups/' . $image_data;
+}
         // Função para obter URL do avatar
         function getProfileImageUrl(imageData) {
     if (!imageData) {
@@ -1052,12 +1072,6 @@ html, body {
     }
 }
 
-        function getGroupImageUrl($image_data) {
-    if (empty($image_data)) {
-        return null;
-    }
-    return '../../uploads/groups/' . $image_data;
-}
 
         // Função para carregar mensagens
         function loadMessages() {
