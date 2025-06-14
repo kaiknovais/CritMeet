@@ -1,5 +1,5 @@
 <?php
-// pages/Profile/index.php - Versão atualizada com tags
+// pages/Profile/index.php - Versão corrigida
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../components/Tags/index.php';
 session_start();
@@ -8,19 +8,28 @@ $user_id = $_SESSION['user_id'] ?? null;
 $is_admin = false;
 $user = null; 
 
-if ($user_id) {
-    $query = "SELECT username, name, image, gender, pronouns, preferences, admin FROM users WHERE id = ?";
-    $stmt = $mysqli->prepare($query);
-    $stmt->bind_param("i", $user_id);
-    $stmt->execute();
-    $result = $stmt->get_result();
-
-    if ($result && $row = $result->fetch_assoc()) {
-        $user = $row;
-        $is_admin = $row['admin'] == 1; 
-    }
-    $stmt->close();
+// Verificar se o usuário está logado
+if (!$user_id) {
+    header('Location: ../../pages/Login/');
+    exit;
 }
+
+// Buscar dados do usuário
+$query = "SELECT username, name, image, gender, pronouns, preferences, admin FROM users WHERE id = ?";
+$stmt = $mysqli->prepare($query);
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$result = $stmt->get_result();
+
+if ($result && $row = $result->fetch_assoc()) {
+    $user = $row;
+    $is_admin = $row['admin'] == 1; 
+} else {
+    // Se não encontrar o usuário, redirecionar para login
+    header('Location: ../../pages/Login/');
+    exit;
+}
+$stmt->close();
 
 // Função para exibir imagem do perfil
 function getProfileImageUrl($image_data) {
@@ -160,13 +169,13 @@ function getProfileImageUrl($image_data) {
         <div class="col-lg-8">
             <div class="profile-container">
                 <div class="profile-header">
-                    <img src="<?php echo getProfileImageUrl($user['image']); ?>" 
+                    <img src="<?php echo getProfileImageUrl($user['image'] ?? ''); ?>" 
                          alt="Imagem de Perfil" 
                          class="profile-image" 
                          onerror="this.src='default-avatar.png'" />
                     
                     <h2 class="mb-2">
-                        <?php echo htmlspecialchars($user['username']); ?>
+                        <?php echo htmlspecialchars($user['username'] ?? 'Usuário'); ?>
                         <?php if ($is_admin): ?>
                             <span class="badge bg-danger admin-badge ms-2">
                                 <i class="bi bi-shield-check"></i> Admin
