@@ -890,53 +890,66 @@ html, body {
     </div>
 
     <!-- Modal de Membros -->
-    <div class="modal-body" id="members-list">
-    <?php foreach ($group_members as $member): ?>
-    <div class="member-item">
-        <?php 
-        $member_avatar_url = getProfileImageUrl($member['image']);
-        if ($member_avatar_url): 
-        ?>
-            <img src="<?php echo $member_avatar_url; ?>" alt="Avatar" class="member-avatar">
-        <?php else: ?>
-            <div class="member-avatar-default"><?php echo strtoupper($member['username'][0]); ?></div>
-        <?php endif; ?>
-        
-        <div class="member-info">
-            <p class="member-username"><?php echo htmlspecialchars($member['username']); ?></p>
-            <p class="member-role">
-                <?php if ($member['id'] == $creator_id): ?>
-                    <span class="creator-badge">Criador</span>
-                <?php elseif ($member['role'] == 'admin'): ?>
-                    <span class="admin-badge">Admin</span>
-                <?php else: ?>
-                    Membro
-                <?php endif; ?>
-            </p>
+    <div class="modal fade" id="membersModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Membros do Grupo</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="members-list">
+                <?php foreach ($group_members as $member): ?>
+                <div class="member-item">
+                    <?php 
+                    $member_avatar_url = getProfileImageUrl($member['image']);
+                    if ($member_avatar_url): 
+                    ?>
+                        <img src="<?php echo $member_avatar_url; ?>" alt="Avatar" class="member-avatar">
+                    <?php else: ?>
+                        <div class="member-avatar-default"><?php echo strtoupper($member['username'][0]); ?></div>
+                    <?php endif; ?>
+                    
+                    <div class="member-info">
+                        <p class="member-username"><?php echo htmlspecialchars($member['username']); ?></p>
+                        <p class="member-role">
+                            <?php if ($member['id'] == $creator_id): ?>
+                                <span class="creator-badge">Criador</span>
+                            <?php elseif ($member['role'] == 'admin'): ?>
+                                <span class="admin-badge">Admin</span>
+                            <?php else: ?>
+                                Membro
+                            <?php endif; ?>
+                        </p>
+                    </div>
+                    
+                    <?php if (($user_role === 'admin' || $is_creator) && $member['id'] != $creator_id): ?>
+                    <div class="member-actions">
+                        <?php if ($member['role'] != 'admin'): ?>
+                            <form method="POST" style="display: inline;">
+                                <input type="hidden" name="member_id" value="<?php echo $member['id']; ?>">
+                                <button type="submit" name="promote_member" class="btn btn-outline-primary btn-sm">Promover</button>
+                            </form>
+                        <?php else: ?>
+                            <form method="POST" style="display: inline;">
+                                <input type="hidden" name="member_id" value="<?php echo $member['id']; ?>">
+                                <button type="submit" name="demote_member" class="btn btn-outline-secondary btn-sm">Rebaixar</button>
+                            </form>
+                        <?php endif; ?>
+                        
+                        <form method="POST" style="display: inline;" onsubmit="return confirm('Remover este membro?');">
+                            <input type="hidden" name="member_id" value="<?php echo $member['id']; ?>">
+                            <button type="submit" name="remove_member" class="btn btn-outline-danger btn-sm">Remover</button>
+                        </form>
+                    </div>
+                    <?php endif; ?>
+                </div>
+                <?php endforeach; ?>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+            </div>
         </div>
-        
-        <?php if (($user_role === 'admin' || $is_creator) && $member['id'] != $creator_id): ?>
-        <div class="member-actions">
-            <?php if ($member['role'] != 'admin'): ?>
-                <form method="POST" style="display: inline;">
-                    <input type="hidden" name="member_id" value="<?php echo $member['id']; ?>">
-                    <button type="submit" name="promote_member" class="btn btn-outline-primary btn-sm">Promover</button>
-                </form>
-            <?php else: ?>
-                <form method="POST" style="display: inline;">
-                    <input type="hidden" name="member_id" value="<?php echo $member['id']; ?>">
-                    <button type="submit" name="demote_member" class="btn btn-outline-secondary btn-sm">Rebaixar</button>
-                </form>
-            <?php endif; ?>
-            
-            <form method="POST" style="display: inline;" onsubmit="return confirm('Remover este membro?');">
-                <input type="hidden" name="member_id" value="<?php echo $member['id']; ?>">
-                <button type="submit" name="remove_member" class="btn btn-outline-danger btn-sm">Remover</button>
-            </form>
-        </div>
-        <?php endif; ?>
     </div>
-    <?php endforeach; ?>
 </div>
 
     <!-- Modal de Configurações -->
@@ -1026,23 +1039,26 @@ html, body {
 
         // Função para obter URL do avatar
         function getProfileImageUrl(imageData) {
-            if (!imageData) {
-                return null;
-            }
-            
-            if (/^[a-zA-Z0-9\/\r\n+]*={0,2}$/.test(imageData)) {
-                return 'data:image/jpeg;base64,' + imageData;
-            } else {
-                return '../../uploads/profiles/' + imageData;
-            }
-        }
+    if (!imageData) {
+        return null;
+    }
+    
+    // Verificar se é base64
+    if (/^[a-zA-Z0-9\/\r\n+]*={0,2}$/.test(imageData)) {
+        return 'data:image/jpeg;base64,' + imageData;
+    } else {
+        // É um nome de arquivo
+        return '../../uploads/profiles/' + imageData;
+    }
+}
 
         function getGroupImageUrl($image_data) {
-            if (empty($image_data)) {
-                return null;
-            }
-            return '../../uploads/groups/' . $image_data;
-        }
+    if (empty($image_data)) {
+        return null;
+    }
+    return '../../uploads/groups/' . $image_data;
+}
+
         // Função para carregar mensagens
         function loadMessages() {
             $.ajax({
@@ -1075,77 +1091,52 @@ html, body {
 
         // Função para exibir mensagens
         function displayMessages(messages) {
-            const container = $('#messages-container');
-            container.empty();
-            
-            messages.forEach(function(message) {
-                const messageClass = message.is_own ? 'message own' : 'message other';
-                const timestamp = new Date(message.timestamp).toLocaleTimeString('pt-BR', {
-                    hour: '2-digit',
-                    minute: '2-digit'
-                });
-                
-                let avatarHtml = '';
-                const avatarUrl = getProfileImageUrl(message.avatar);
-                
-                if (avatarUrl) {
-                    avatarHtml = `<img src="${avatarUrl}" alt="Avatar de ${message.username}" class="message-avatar" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                                  <div class="message-avatar-default" style="display: none;">${message.username.charAt(0).toUpperCase()}</div>`;
-                } else {
-                    const initial = message.username.charAt(0).toUpperCase();
-                    avatarHtml = `<div class="message-avatar-default">${initial}</div>`;
-                }
-                
-                const messageHtml = `
-                    <div class="${messageClass}">
-                        ${avatarHtml}
-                        <div class="message-content">
-                            <div class="message-username">${message.username}</div>
-                            <div class="message-text">${message.content}</div>
-                            <div class="message-timestamp">${timestamp}</div>
-                        </div>
-                    </div>
-                `;
-                
-                container.append(messageHtml);
-            });
+    const container = $('#messages-container');
+    container.empty();
+    
+    messages.forEach(function(message) {
+        const messageClass = message.is_own ? 'message own' : 'message other';
+        const timestamp = new Date(message.timestamp).toLocaleTimeString('pt-BR', {
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+        
+        let avatarHtml = '';
+        const avatarUrl = getProfileImageUrl(message.avatar);
+        
+        if (avatarUrl) {
+            avatarHtml = `<img src="${avatarUrl}" alt="Avatar de ${message.username}" class="message-avatar" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                          <div class="message-avatar-default" style="display: none;">${message.username.charAt(0).toUpperCase()}</div>`;
+        } else {
+            const initial = message.username.charAt(0).toUpperCase();
+            avatarHtml = `<div class="message-avatar-default">${initial}</div>`;
         }
-        function displayMessages(messages) {
-            const container = $('#messages-container');
-            container.empty();
-            
-            messages.forEach(function(message) {
-                const messageClass = message.is_own ? 'message own' : 'message other';
-                const timestamp = new Date(message.timestamp).toLocaleTimeString('pt-BR', {
-                    hour: '2-digit',
-                    minute: '2-digit'
-                });
-                
-                let avatarHtml = '';
-                const avatarUrl = getProfileImageUrl(message.avatar);
-                
-                if (avatarUrl) {
-                    avatarHtml = `<img src="${avatarUrl}" alt="Avatar de ${message.username}" class="message-avatar" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                                  <div class="message-avatar-default" style="display: none;">${message.username.charAt(0).toUpperCase()}</div>`;
-                } else {
-                    const initial = message.username.charAt(0).toUpperCase();
-                    avatarHtml = `<div class="message-avatar-default">${initial}</div>`;
-                }
-                
-                const messageHtml = `
-                    <div class="${messageClass}">
-                        ${avatarHtml}
-                        <div class="message-content">
-                            <div class="message-username">${message.username}</div>
-                            <div class="message-text">${message.content}</div>
-                            <div class="message-timestamp">${timestamp}</div>
-                        </div>
-                    </div>
-                `;
-                
-                container.append(messageHtml);
-            });
-        }
+        
+        const messageHtml = `
+            <div class="${messageClass}">
+                ${avatarHtml}
+                <div class="message-content">
+                    <div class="message-username">${message.username}</div>
+                    <div class="message-text">${escapeHtml(message.content)}</div>
+                    <div class="message-timestamp">${timestamp}</div>
+                </div>
+            </div>
+        `;
+        
+        container.append(messageHtml);
+    });
+}
+
+function escapeHtml(text) {
+    const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    };
+    return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+}
 
         // Enviar mensagem
         $('#message-form').on('submit', function(e) {
