@@ -132,6 +132,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $pronouns = $_POST['pronouns'] ?? $user['pronouns'];
         $preferences = $_POST['preferences'] ?? '';
         
+        // Processar e validar as tags selecionadas
+        $preferences = RPGTags::formatUserTags(RPGTags::parseUserTags($preferences));
+        
         $new_image_filename = null;
         
         // Processar upload de nova imagem
@@ -191,12 +194,11 @@ function getProfileImageUrl($image_data) {
 }
 ?>
 
-
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Editar Perfil</title>
+    <title>Editar Perfil - CritMeet</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="../../../assets/mobile.css" media="screen and (max-width: 600px)">
     <link rel="stylesheet" href="../../../assets/desktop.css" media="screen and (min-width: 601px)">
@@ -210,29 +212,150 @@ function getProfileImageUrl($image_data) {
             object-fit: cover;
             border: 3px solid #dee2e6;
             margin: 10px 0;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            transition: transform 0.2s ease;
         }
+        
+        .image-preview:hover {
+            transform: scale(1.05);
+        }
+        
         .file-input-wrapper {
             position: relative;
             display: inline-block;
             cursor: pointer;
-            background: #007bff;
+            background: linear-gradient(135deg, #007bff, #0056b3);
             color: white;
-            padding: 8px 16px;
-            border-radius: 4px;
+            padding: 12px 20px;
+            border-radius: 8px;
             margin: 10px 0;
+            transition: all 0.3s ease;
+            border: none;
+            box-shadow: 0 2px 4px rgba(0,123,255,0.3);
         }
+        
+        .file-input-wrapper:hover {
+            background: linear-gradient(135deg, #0056b3, #004085);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,123,255,0.4);
+        }
+        
         .file-input-wrapper input[type=file] {
             position: absolute;
             left: -9999px;
         }
+        
         .form-group {
-            margin: 15px 0;
+            margin: 20px 0;
         }
+        
         .form-control {
             margin: 5px 0;
+            border-radius: 8px;
+            border: 2px solid #dee2e6;
+            transition: border-color 0.2s ease;
         }
+        
+        .form-control:focus {
+            border-color: #007bff;
+            box-shadow: 0 0 0 0.2rem rgba(0,123,255,0.25);
+        }
+        
         .alert {
             margin: 15px 0;
+            border-radius: 8px;
+            border: none;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .card {
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .card-header {
+            background: linear-gradient(135deg, #007bff, #0056b3);
+            color: white;
+            border: none;
+            padding: 20px;
+        }
+        
+        .card-body {
+            padding: 30px;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #007bff, #0056b3);
+            border: none;
+            border-radius: 8px;
+            padding: 12px 24px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0,123,255,0.3);
+        }
+        
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #0056b3, #004085);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,123,255,0.4);
+        }
+        
+        .btn-secondary {
+            border-radius: 8px;
+            padding: 12px 24px;
+            font-weight: 500;
+        }
+        
+        .preferences-section {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 15px 0;
+            border: 1px solid #dee2e6;
+        }
+        
+        .preferences-title {
+            color: #495057;
+            font-weight: 600;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .form-text {
+            color: #6c757d;
+            font-size: 0.875rem;
+            margin-top: 5px;
+        }
+        
+        /* Animações */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .card {
+            animation: fadeIn 0.6s ease-out;
+        }
+        
+        /* Responsividade */
+        @media (max-width: 768px) {
+            .card-body {
+                padding: 20px;
+            }
+            
+            .preferences-section {
+                padding: 15px;
+            }
         }
     </style>
 </head>
@@ -242,7 +365,9 @@ function getProfileImageUrl($image_data) {
     
     <nav class="navbar navbar-expand-lg bg-body-tertiary" data-bs-theme="dark">
         <div class="container-fluid">
-            <a class="navbar-brand" href="../homepage/">CritMeet</a>
+            <a class="navbar-brand" href="../homepage/">
+                <i class="bi bi-dice-6"></i> CritMeet
+            </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent">
                 <span class="navbar-toggler-icon"></span>
             </button>
@@ -271,18 +396,29 @@ function getProfileImageUrl($image_data) {
 
     <div class="container">
         <div class="row justify-content-center">
-            <div class="col-md-8 col-lg-6">
+            <div class="col-md-10 col-lg-8">
                 <div class="card mt-4">
                     <div class="card-header">
-                        <h3 class="text-center mb-0">Editar Perfil</h3>
+                        <h3 class="text-center mb-0">
+                            <i class="bi bi-person-gear"></i> Editar Perfil
+                        </h3>
+                        <p class="text-center mb-0 mt-2 opacity-75">
+                            Personalize suas informações e preferências de RPG
+                        </p>
                     </div>
                     <div class="card-body">
                         <?php if (isset($success_message)): ?>
-                            <div class="alert alert-success"><?php echo $success_message; ?></div>
+                            <div class="alert alert-success d-flex align-items-center">
+                                <i class="bi bi-check-circle-fill me-2"></i>
+                                <div><?php echo $success_message; ?></div>
+                            </div>
                         <?php endif; ?>
                         
                         <?php if (isset($error_message)): ?>
-                            <div class="alert alert-danger"><?php echo $error_message; ?></div>
+                            <div class="alert alert-danger d-flex align-items-center">
+                                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                                <div><?php echo $error_message; ?></div>
+                            </div>
                         <?php endif; ?>
 
                         <div class="text-center">
@@ -295,45 +431,70 @@ function getProfileImageUrl($image_data) {
                         <form method="POST" action="" enctype="multipart/form-data">
                             <div class="form-group text-center">
                                 <label class="file-input-wrapper">
-                                    <i class="bi bi-camera"></i> Escolher Nova Imagem
+                                    <i class="bi bi-camera-fill"></i> Escolher Nova Imagem
                                     <input type="file" name="image" accept="image/*" id="imageInput" />
                                 </label>
-                                <div class="form-text">Formatos aceitos: JPEG, PNG, GIF, WebP (máximo 5MB)</div>
+                                <div class="form-text">
+                                    <i class="bi bi-info-circle"></i>
+                                    Formatos aceitos: JPEG, PNG, GIF, WebP (máximo 5MB)
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="name" class="form-label">
+                                            <i class="bi bi-person"></i> Nome Completo:
+                                        </label>
+                                        <input type="text" 
+                                               class="form-control" 
+                                               id="name"
+                                               name="name" 
+                                               placeholder="Seu nome completo" 
+                                               value="<?php echo htmlspecialchars($user['name'] ?? ''); ?>" />
+                                    </div>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="gender" class="form-label">
+                                            <i class="bi bi-gender-ambiguous"></i> Gênero:
+                                        </label>
+                                        <input type="text" 
+                                               class="form-control" 
+                                               id="gender"
+                                               name="gender" 
+                                               placeholder="Ex: Masculino, Feminino, Não-binário..." 
+                                               value="<?php echo htmlspecialchars($user['gender'] ?? ''); ?>" />
+                                    </div>
+                                </div>
                             </div>
 
                             <div class="form-group">
-                                <label for="name" class="form-label">Nome:</label>
-                                <input type="text" 
-                                       class="form-control" 
-                                       id="name"
-                                       name="name" 
-                                       placeholder="Nome" 
-                                       value="<?php echo htmlspecialchars($user['name'] ?? ''); ?>" />
-                            </div>
-
-                            <div class="form-group">
-                                <label for="gender" class="form-label">Gênero:</label>
-                                <input type="text" 
-                                       class="form-control" 
-                                       id="gender"
-                                       name="gender" 
-                                       placeholder="Gênero" 
-                                       value="<?php echo htmlspecialchars($user['gender'] ?? ''); ?>" />
-                            </div>
-
-                            <div class="form-group">
-                                <label for="pronouns" class="form-label">Pronomes:</label>
+                                <label for="pronouns" class="form-label">
+                                    <i class="bi bi-chat-quote"></i> Pronomes:
+                                </label>
                                 <input type="text" 
                                        class="form-control" 
                                        id="pronouns"
                                        name="pronouns" 
-                                       placeholder="Ex: ele/dele, ela/dela, elu/delu" 
+                                       placeholder="Ex: ele/dele, ela/dela, elu/delu, they/them..." 
                                        value="<?php echo htmlspecialchars($user['pronouns'] ?? ''); ?>" />
+                                <div class="form-text">
+                                    Como você gostaria de ser referido/a durante as sessões?
+                                </div>
                             </div>
 
-                            <div class="form-group">
-                                <label class="form-label">Preferências de RPG:</label>
-                                <p class="form-text">Selecione até 5 tags que representem suas preferências de jogo:</p>
+                            <div class="preferences-section">
+                                <div class="preferences-title">
+                                    <i class="bi bi-controller"></i> 
+                                    Preferências de RPG
+                                </div>
+                                <p class="form-text mb-3">
+                                    <i class="bi bi-lightbulb"></i>
+                                    Selecione até 5 tags que melhor representem seu estilo de jogo e preferências. 
+                                    Isso ajudará outros jogadores a encontrarem você!
+                                </p>
                                 <?php 
                                 // Usar as preferências atuais do usuário
                                 $current_preferences = isset($user['preferences']) ? $user['preferences'] : '';
@@ -342,11 +503,11 @@ function getProfileImageUrl($image_data) {
                             </div>
 
                             <div class="form-group text-center">
-                                <button type="submit" class="btn btn-primary">
-                                    <i class="bi bi-check-lg"></i> Confirmar Alterações
+                                <button type="submit" class="btn btn-primary me-2">
+                                    <i class="bi bi-check-lg"></i> Salvar Alterações
                                 </button>
-                                <a href="../Profile/" class="btn btn-secondary ms-2">
-                                    <i class="bi bi-arrow-left"></i> Voltar ao Perfil
+                                <a href="../Profile/" class="btn btn-secondary">
+                                    <i class="bi bi-arrow-left"></i> Cancelar
                                 </a>
                             </div>
                         </form>
@@ -361,11 +522,37 @@ function getProfileImageUrl($image_data) {
         document.getElementById('imageInput').addEventListener('change', function(event) {
             const file = event.target.files[0];
             if (file) {
+                // Validar tamanho do arquivo
+                if (file.size > 5 * 1024 * 1024) {
+                    alert('Arquivo muito grande! Máximo permitido: 5MB');
+                    this.value = '';
+                    return;
+                }
+                
+                // Validar tipo do arquivo
+                const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+                if (!allowedTypes.includes(file.type)) {
+                    alert('Tipo de arquivo não permitido! Use apenas JPEG, PNG, GIF ou WebP.');
+                    this.value = '';
+                    return;
+                }
+                
                 const reader = new FileReader();
                 reader.onload = function(e) {
                     document.getElementById('imagePreview').src = e.target.result;
                 };
                 reader.readAsDataURL(file);
+            }
+        });
+        
+        // Adicionar tooltips aos campos
+        document.addEventListener('DOMContentLoaded', function() {
+            // Inicializar tooltips do Bootstrap se disponível
+            if (typeof bootstrap !== 'undefined' && bootstrap.Tooltip) {
+                var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+                var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+                    return new bootstrap.Tooltip(tooltipTriggerEl);
+                });
             }
         });
     </script>
