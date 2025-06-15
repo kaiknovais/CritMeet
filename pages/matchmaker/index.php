@@ -86,6 +86,9 @@ class SimpleMatchmaker {
     public function getExcludedUsers() {
         $excluded = [$this->user_id];
         
+        // Adicionar usuários rejeitados temporariamente
+        $excluded = array_merge($excluded, $this->rejected_users);
+        
         // Amigos aceitos
         $sql1 = "SELECT friend_id FROM friends WHERE user_id = ? AND status = 'accepted'
                  UNION
@@ -213,6 +216,8 @@ class SimpleMatchmaker {
     }
 }
 
+
+
 function getProfileImageUrl($image_data) {
     if (empty($image_data)) {
         return '../../assets/default-avatar.png';
@@ -243,6 +248,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $response = $matchmaker->sendFriendRequest($target_user_id);
                 echo json_encode($response);
                 exit();
+                case 'reject_user':
+                    $target_user_id = intval($_POST['target_user_id']);
+                    $response = $matchmaker->rejectUser($target_user_id);
+                    echo json_encode($response);
+                    exit();
+        
         }
     }
 }
@@ -464,6 +475,17 @@ $initial_match = $matchmaker->getNextMatch();
                         <?php endif; ?>
                     </div>
                 </div>
+                
+                <!-- BOTÕES PARA O MATCH INICIAL -->
+                <div class="action-buttons">
+                    <button class="btn-pass" onclick="passUser()" title="Passar">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                    <button class="btn-like" onclick="likeUser()" title="Enviar Solicitação">
+                        <i class="bi bi-heart-fill"></i>
+                    </button>
+                </div>
+                
             <?php else: ?>
                 <div class="no-matches">
                     <i class="bi bi-search" style="font-size: 3rem; opacity: 0.5;"></i>
@@ -475,17 +497,6 @@ $initial_match = $matchmaker->getNextMatch();
                 </div>
             <?php endif; ?>
         </div>
-        
-        <?php if ($initial_match && !isset($initial_match['error'])): ?>
-            <div class="action-buttons">
-                <button class="btn-pass" onclick="passUser()" title="Passar">
-                    <i class="bi bi-x-lg"></i>
-                </button>
-                <button class="btn-like" onclick="likeUser()" title="Enviar Solicitação">
-                    <i class="bi bi-heart-fill"></i>
-                </button>
-            </div>
-        <?php endif; ?>
     </div>
 </div>
 
@@ -600,25 +611,10 @@ function displayMatch(match) {
     
     document.getElementById('matchCard').innerHTML = `
         <div class="match-card" id="currentMatch" data-user-id="${match.user.id}">
-            <img src="${imageUrl}" alt="Foto de perfil" class="match-image">
-            
-            <div class="match-info">
-                <div class="match-name">
-                    ${match.user.name || match.user.username}
-                </div>
-                
-                <div class="match-details">
-                    <div><i class="bi bi-geo-alt"></i> ${match.distance}km de distância</div>
-                    <div><i class="bi bi-person"></i> ${match.user.gender}
-                        ${match.user.pronouns ? ` | ${match.user.pronouns}` : ''}
-                    </div>
-                    <div><i class="bi bi-geo"></i> ${match.user.city}, ${match.user.state}</div>
-                </div>
-                
-                ${tagsHtml}
-            </div>
+            <!-- conteúdo do card -->
         </div>
         
+        <!-- OS BOTÕES DEVEM ESTAR AQUI DENTRO -->
         <div class="action-buttons">
             <button class="btn-pass" onclick="passUser()" title="Passar">
                 <i class="bi bi-x-lg"></i>
@@ -634,12 +630,42 @@ function passUser() {
     if (isLoading) return;
     
     const matchCard = document.getElementById('currentMatch');
-    if (matchCard) {
+    if (!matchCard) return;
+    
+    const userId = matchCard.dataset.userId;
+    
+    // Adicionar usuário à lista de rejeitados
+    fetch(window.location.href, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: `action=reject_user&target_user_id=${userId}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            matchCard.classList.add('swipe-left');
+            setTimeout(() => {
+                loadNextMatch();
+            }, 300);
+        } else {
+            console.error('Erro ao rejeitar usuário:', data.message);
+            // Mesmo com erro, continue com o próximo match
+            matchCard.classList.add('swipe-left');
+            setTimeout(() => {
+                loadNextMatch();
+            }, 300);
+        }
+    })
+    .catch(error => {
+        console.error('Erro:', error);
+        // Mesmo com erro, continue com o próximo match
         matchCard.classList.add('swipe-left');
         setTimeout(() => {
             loadNextMatch();
         }, 300);
-    }
+    });
 }
 
 function likeUser() {
