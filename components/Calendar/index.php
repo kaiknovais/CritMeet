@@ -21,7 +21,6 @@ class Calendar {
         $sql = "SELECT s.id, s.title, s.description, s.start_datetime, s.end_datetime, 
                        s.max_players, s.current_players, s.status, s.location,
                        u.name as creator_name, u.username as creator_username, u.id as creator_id,
-                       c.name as chat_name, c.id as chat_id,
                        CASE 
                            WHEN s.creator_id = ? THEN 'creator'
                            WHEN EXISTS(SELECT 1 FROM session_members WHERE session_id = s.id AND user_id = ? AND status = 'accepted') THEN 'member'
@@ -29,7 +28,6 @@ class Calendar {
                        END as user_relation
                 FROM sessions s 
                 JOIN users u ON s.creator_id = u.id 
-                LEFT JOIN chats c ON s.chat_id = c.id
                 WHERE s.id IN (
                     SELECT session_id FROM session_members WHERE user_id = ? AND status = 'accepted'
                 ) OR s.creator_id = ?
@@ -63,7 +61,6 @@ class Calendar {
         $sql = "SELECT s.id, s.title, s.description, s.start_datetime, s.end_datetime, 
                        s.max_players, s.current_players, s.status, s.location,
                        u.name as creator_name, u.username as creator_username, u.id as creator_id,
-                       c.name as chat_name, c.id as chat_id,
                        CASE 
                            WHEN s.creator_id = ? THEN 'creator'
                            WHEN EXISTS(SELECT 1 FROM session_members WHERE session_id = s.id AND user_id = ? AND status = 'accepted') THEN 'member'
@@ -71,7 +68,6 @@ class Calendar {
                        END as user_relation
                 FROM sessions s 
                 JOIN users u ON s.creator_id = u.id 
-                LEFT JOIN chats c ON s.chat_id = c.id
                 WHERE (s.id IN (
                     SELECT session_id FROM session_members WHERE user_id = ? AND status = 'accepted'
                 ) OR s.creator_id = ?)
@@ -120,9 +116,7 @@ class Calendar {
                     'location' => $session['location'],
                     'players' => $session['current_players'] . '/' . $session['max_players'],
                     'status' => $session['status'],
-                    'user_relation' => $session['user_relation'],
-                    'chat_name' => $session['chat_name'],
-                    'chat_id' => $session['chat_id']
+                    'user_relation' => $session['user_relation']
                 ]
             ];
         }
@@ -197,9 +191,6 @@ class Calendar {
                                                     <div class="mb-1"><i class="bi bi-clock"></i> <?php echo date('H:i', strtotime($session['start_datetime'])); ?> - <?php echo date('H:i', strtotime($session['end_datetime'])); ?></div>
                                                     <div class="mb-1"><i class="bi bi-people"></i> <?php echo $session['current_players']; ?>/<?php echo $session['max_players']; ?> jogadores</div>
                                                     <div class="mb-1"><i class="bi bi-person"></i> <?php echo htmlspecialchars($session['creator_name']); ?></div>
-                                                    <?php if ($session['chat_name']): ?>
-                                                        <div class="mb-1"><i class="bi bi-chat-dots"></i> <?php echo htmlspecialchars($session['chat_name']); ?></div>
-                                                    <?php endif; ?>
                                                     <?php if ($session['location']): ?>
                                                         <div><i class="bi bi-geo-alt"></i> <?php echo htmlspecialchars($session['location']); ?></div>
                                                     <?php endif; ?>
@@ -352,7 +343,6 @@ class Calendar {
                                             <div class=\"col-sm-4\"><strong>Jogadores:</strong></div>
                                             <div class=\"col-sm-8\">\${props.players}</div>
                                         </div>
-                                        \${props.chat_name ? '<div class=\"row\"><div class=\"col-sm-4\"><strong>Grupo:</strong></div><div class=\"col-sm-8\">' + props.chat_name + '</div></div>' : ''}
                                         \${props.location ? '<div class=\"row\"><div class=\"col-sm-4\"><strong>Local:</strong></div><div class=\"col-sm-8\">' + props.location + '</div></div>' : ''}
                                         \${props.description ? '<div class=\"row mt-2\"><div class=\"col-12\"><strong>Descrição:</strong><br>' + props.description + '</div></div>' : ''}
                                         <div class=\"row mt-2\">
