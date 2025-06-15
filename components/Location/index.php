@@ -138,7 +138,6 @@ class Location {
                             <h6>📍 Sua Localização Atual</h6>
                             <div id="location-status">
                                 <?php if ($current_location): ?>
-                                    <p class="mb-1"><strong>Endereço:</strong> <?php echo htmlspecialchars($current_location['address'] ?: 'Não especificado'); ?></p>
                                     <p class="mb-1"><strong>Cidade:</strong> <?php echo htmlspecialchars($current_location['city'] ?: 'N/A'); ?>, <?php echo htmlspecialchars($current_location['state'] ?: 'N/A'); ?></p>
                                     <p class="mb-0"><small>Última atualização: <?php echo date('d/m/Y H:i', strtotime($current_location['updated_at'])); ?></small></p>
                                 <?php else: ?>
@@ -179,20 +178,6 @@ class Location {
                                 • Use esta informação para organizar sessões presenciais<br>
                                 • Encontre amigos através da busca por cidade/região
                             </p>
-
-                            <?php if ($current_location): ?>
-                                <div class="mt-4 p-3 bg-light rounded">
-                                    <h6><i class="bi bi-bookmark-check"></i> Localização Salva</h6>
-                                    <p class="small mb-1">
-                                        <strong>Coordenadas:</strong><br>
-                                        Lat: <?php echo number_format($current_location['latitude'], 6); ?><br>
-                                        Lng: <?php echo number_format($current_location['longitude'], 6); ?>
-                                    </p>
-                                    <p class="small mb-0">
-                                        <strong>Precisão:</strong> ±<?php echo intval($current_location['accuracy']); ?>m
-                                    </p>
-                                </div>
-                            <?php endif; ?>
                         </div>
                     </div>
                 </div>
