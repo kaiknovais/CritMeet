@@ -5,7 +5,6 @@ require_once __DIR__ . '/../../components/FriendRequest/index.php';
 require_once __DIR__ . '/../../components/RecentMessages/index.php';
 require_once __DIR__ . '/../../components/Calendar/index.php';
 
-
 session_start();
 
 $user_id = $_SESSION['user_id'] ?? null;
@@ -27,7 +26,7 @@ if ($user_id) {
 $location = new Location($mysqli, $user_id);
 $friendRequest = new FriendRequest($mysqli, $user_id);
 $recentMessages = new RecentMessages($mysqli, $user_id);
-$schedule = new Schedule($mysqli, $user_id);
+$calendar = new Calendar($mysqli, $user_id); // Changed from Schedule to Calendar
 
 // Processar requisições POST
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -52,7 +51,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $current_location = $location->getCurrentLocation();
 $pending_requests = $friendRequest->getPendingRequests();
 $recent_messages = $recentMessages->getRecentMessages();
-$scheduled_sessions = $schedule->getUpcomingSessions(); // Changed from getScheduled() to getUpcomingSessions()
+$scheduled_sessions = $calendar->getUpcomingSessions(); // Changed from $schedule to $calendar
+
 ?>
 
 <!DOCTYPE html>
@@ -158,7 +158,7 @@ $scheduled_sessions = $schedule->getUpcomingSessions(); // Changed from getSched
         <!-- Componentes -->
         <?php $friendRequest->render($pending_requests); ?>
         <?php $recentMessages->render($recent_messages); ?>
-        <?php $schedule->renderCalendarSection(); ?> <!-- Changed from render() to renderCalendarSection() -->
+        <?php $calendar->renderCalendarSection(); ?> <!-- Changed from $schedule to $calendar -->
         <?php $location->render($current_location); ?>
     </div>
 
@@ -175,7 +175,7 @@ $scheduled_sessions = $schedule->getUpcomingSessions(); // Changed from getSched
             // Initialize calendar when the scheduled sessions section is shown
             document.getElementById('scheduledSessions').addEventListener('shown.bs.collapse', function () {
                 if (!calendar) {
-                    <?php echo $schedule->getCalendarScript(); ?>
+                    <?php echo $calendar->getCalendarScript(); ?> // Changed from $schedule to $calendar
                     initializeCalendar();
                 }
             });
