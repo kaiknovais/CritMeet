@@ -45,99 +45,6 @@ $user_result = $user_stmt->get_result();
 $current_user = $user_result->fetch_assoc();
 $current_user_tags = RPGTags::parseUserTags($current_user['preferences'] ?? '');
 
-// Parâmetros de busca
-$search_filters = [
-    'distance' => $_GET['distance'] ?? 50, // km
-    'tags' => $_GET['tags'] ?? '',
-    'match_type' => $_GET['match_type'] ?? 'similar', // similar, specific, nearby, all
-    'city' => $_GET['city'] ?? '',
-    'state' => $_GET['state'] ?? '',
-    'sort' => $_GET['sort'] ?? 'compatibility' // compatibility, distance, name
-];
-
-// Construir query de busca
-$search_results = [];
-$base_query = "SELECT u.id, u.username, u.name, u.preferences,
-                      ul.latitude, ul.longitude, ul.city, ul.state, ul.address, ul.updated_at as location_updated";
-
-$from_clause = " FROM users u 
-                 LEFT JOIN user_locations ul ON u.id = ul.user_id 
-                 WHERE u.id != ?";
-
-$params = [$user_id];
-$param_types = "i";
-
-// Filtros de localização
-if ($current_location && $search_filters['distance'] > 0) {
-    $from_clause .= " HAVING (
-        6371 * acos(
-            cos(radians(?)) * cos(radians(ul.latitude)) * 
-            cos(radians(ul.longitude) - radians(?)) + 
-            sin(radians(?)) * sin(radians(ul.latitude))
-        )
-    ) <= ? OR ul.latitude IS NULL";
-    
-    $params[] = $current_location['latitude'];
-    $params[] = $current_location['longitude'];
-    $params[] = $current_location['latitude'];
-    $params[] = $search_filters['distance'];
-    $param_types .= "dddd";
-}
-
-// Filtro por cidade/estado
-if (!empty($search_filters['city'])) {
-    $from_clause .= " AND ul.city LIKE ?";
-    $params[] = "%" . $search_filters['city'] . "%";
-    $param_types .= "s";
-}
-
-if (!empty($search_filters['state'])) {
-    $from_clause .= " AND ul.state LIKE ?";
-    $params[] = "%" . $search_filters['state'] . "%";
-    $param_types .= "s";
-}
-
-$order_clause = " ORDER BY ";
-switch ($search_filters['sort']) {
-    case 'distance':
-        if ($current_location) {
-            $order_clause .= "(
-                6371 * acos(
-                    cos(radians(" . $current_location['latitude'] . ")) * cos(radians(ul.latitude)) * 
-                    cos(radians(ul.longitude) - radians(" . $current_location['longitude'] . ")) + 
-                    sin(radians(" . $current_location['latitude'] . ")) * sin(radians(ul.latitude))
-                )
-            ) ASC";
-        } else {
-            $order_clause .= "u.name ASC";
-        }
-        break;
-    case 'name':
-        $order_clause .= "u.name ASC";
-        break;
-    default: // compatibility
-        $order_clause .= "u.name ASC";
-}
-
-$full_query = $base_query . $from_clause . $order_clause . " LIMIT 50";
-
-$search_stmt = $mysqli->prepare($full_query);
-if (!empty($params)) {
-    $search_stmt->bind_param($param_types, ...$params);
-}
-$search_stmt->execute();
-$search_results = $search_stmt->get_result();
-
-// Função para calcular compatibilidade de tags
-function calculateTagCompatibility($user_tags, $other_tags) {
-    if (empty($user_tags) || empty($other_tags)) return 0;
-    
-    $intersection = array_intersect($user_tags, $other_tags);
-    $union = array_unique(array_merge($user_tags, $other_tags));
-    
-    return count($union) > 0 ? (count($intersection) / count($union)) * 100 : 0;
-}
-
 // Função para calcular distância
 function calculateDistance($current_location, $other_lat, $other_lng) {
     if (!$current_location || !$other_lat || !$other_lng) return null;
@@ -155,6 +62,93 @@ function calculateDistance($current_location, $other_lat, $other_lng) {
     
     return 6371 * $c; // Distância em km
 }
+
+// Função para calcular compatibilidade de tags
+function calculateTagCompatibility($user_tags, $other_tags) {
+    if (empty($user_tags) || empty($other_tags)) return 0;
+    
+    $intersection = array_intersect($user_tags, $other_tags);
+    $union = array_unique(array_merge($user_tags, $other_tags));
+    
+    return count($union) > 0 ? (count($intersection) / count($union)) * 100 : 0;
+}
+
+// Buscar jogadores próximos
+$nearby_players = [];
+if ($current_location) {
+    $nearby_query = "SELECT u.id, u.username, u.name, u.preferences,
+                            ul.latitude, ul.longitude, ul.city, ul.state, ul.address,
+                            (6371 * acos(
+                                cos(radians(?)) * cos(radians(ul.latitude)) * 
+                                cos(radians(ul.longitude) - radians(?)) + 
+                                sin(radians(?)) * sin(radians(ul.latitude))
+                            )) AS distance
+                     FROM users u 
+                     JOIN user_locations ul ON u.id = ul.user_id 
+                     WHERE u.id != ?
+                     HAVING distance <= 50
+                     ORDER BY distance ASC
+                     LIMIT 6";
+    
+    $nearby_stmt = $mysqli->prepare($nearby_query);
+    $nearby_stmt->bind_param("dddi", 
+        $current_location['latitude'], 
+        $current_location['longitude'], 
+        $current_location['latitude'], 
+        $user_id
+    );
+    $nearby_stmt->execute();
+    $nearby_players = $nearby_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+}
+
+// Buscar jogadores com gostos similares
+$similar_players = [];
+if (!empty($current_user_tags)) {
+    $similar_query = "SELECT u.id, u.username, u.name, u.preferences,
+                             ul.latitude, ul.longitude, ul.city, ul.state
+                      FROM users u 
+                      LEFT JOIN user_locations ul ON u.id = ul.user_id 
+                      WHERE u.id != ? AND u.preferences IS NOT NULL AND u.preferences != ''
+                      ORDER BY u.name ASC
+                      LIMIT 20";
+    
+    $similar_stmt = $mysqli->prepare($similar_query);
+    $similar_stmt->bind_param("i", $user_id);
+    $similar_stmt->execute();
+    $all_players = $similar_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    
+    // Calcular compatibilidade e ordenar
+    foreach ($all_players as $player) {
+        $player_tags = RPGTags::parseUserTags($player['preferences']);
+        $compatibility = calculateTagCompatibility($current_user_tags, $player_tags);
+        $player['compatibility'] = $compatibility;
+        
+        if ($compatibility > 30) { // Apenas jogadores com compatibilidade > 30%
+            $similar_players[] = $player;
+        }
+    }
+    
+    // Ordenar por compatibilidade
+    usort($similar_players, function($a, $b) {
+        return $b['compatibility'] - $a['compatibility'];
+    });
+    
+    $similar_players = array_slice($similar_players, 0, 6);
+}
+
+// Buscar jogadores recentes
+$recent_query = "SELECT u.id, u.username, u.name, u.preferences,
+                        ul.latitude, ul.longitude, ul.city, ul.state
+                 FROM users u 
+                 LEFT JOIN user_locations ul ON u.id = ul.user_id 
+                 WHERE u.id != ?
+                 ORDER BY u.id DESC
+                 LIMIT 6";
+
+$recent_stmt = $mysqli->prepare($recent_query);
+$recent_stmt->bind_param("i", $user_id);
+$recent_stmt->execute();
+$recent_players = $recent_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 ?>
 
 <!DOCTYPE html>
@@ -162,129 +156,85 @@ function calculateDistance($current_location, $other_lat, $other_lng) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Buscar Jogadores - CritMeet</title>
+    <title>Encontrar Jogadores - CritMeet</title>
     <link rel="stylesheet" href="../../assets/mobile.css" media="screen and (max-width: 600px)">
     <link rel="stylesheet" href="../../assets/desktop.css" media="screen and (min-width: 601px)">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
-    <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     
     <style>
         .player-card {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             border-radius: 15px;
             padding: 20px;
-            margin-bottom: 20px;
             color: white;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            height: 100%;
+            transition: transform 0.3s ease;
         }
         
         .player-card:hover {
             transform: translateY(-5px);
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
         }
         
         .compatibility-badge {
-            position: absolute;
-            top: 15px;
-            right: 15px;
-            border-radius: 20px;
-            padding: 5px 12px;
-            font-weight: bold;
-            font-size: 0.9rem;
-        }
-        
-        .compatibility-high { background: #28a745; }
-        .compatibility-medium { background: #ffc107; color: #000; }
-        .compatibility-low { background: #dc3545; }
-        
-        .distance-info {
             background: rgba(255, 255, 255, 0.2);
-            border-radius: 10px;
-            padding: 8px 12px;
-            font-size: 0.9rem;
+            border-radius: 20px;
+            padding: 5px 10px;
+            font-size: 0.8rem;
             display: inline-block;
             margin-bottom: 10px;
         }
         
-        .search-filters {
-            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-            border-radius: 15px;
-            padding: 25px;
-            margin-bottom: 30px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        .distance-badge {
+            background: rgba(255, 193, 7, 0.8);
+            color: #000;
+            border-radius: 20px;
+            padding: 5px 10px;
+            font-size: 0.8rem;
+            display: inline-block;
+            margin-bottom: 10px;
+        }
+        
+        .section-header {
+            border-bottom: 3px solid #007bff;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
         }
         
         .no-results {
             text-align: center;
-            padding: 50px 20px;
-            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-            border-radius: 15px;
+            padding: 30px;
+            background: #f8f9fa;
+            border-radius: 10px;
             color: #6c757d;
         }
         
-        .match-type-selector {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            margin-bottom: 20px;
+        .notification-badge {
+            position: relative;
         }
         
-        .match-type-btn {
-            padding: 8px 16px;
-            border: 2px solid #007bff;
-            background: transparent;
-            color: #007bff;
-            border-radius: 25px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-        
-        .match-type-btn.active,
-        .match-type-btn:hover {
-            background: #007bff;
+        .notification-badge .badge {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background-color: #dc3545;
             color: white;
+            border-radius: 50%;
+            padding: 2px 6px;
+            font-size: 0.7rem;
         }
         
-        .player-tags {
-            margin-top: 15px;
-        }
-        
-        .player-tags .badge {
-            margin-right: 5px;
-            margin-bottom: 5px;
-        }
-        
-        .location-status {
-            font-size: 0.9rem;
-            opacity: 0.9;
-            margin-top: 10px;
-        }
-        
-        @media (max-width: 768px) {
-            .search-filters {
-                padding: 15px;
-            }
-            
-            .player-card {
-                padding: 15px;
-            }
-            
-            .compatibility-badge {
-                position: static;
-                display: inline-block;
-                margin-bottom: 10px;
-            }
+        .toggle-section {
+            margin-bottom: 20px;
         }
     </style>
 </head>
 <body>
+    <?php include 'header.php'; ?>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-    <!-- Navbar -->
     <nav class="navbar navbar-expand-lg bg-body-tertiary" data-bs-theme="dark">
         <div class="container-fluid">
             <a class="navbar-brand" href="../homepage/">CritMeet</a>
@@ -302,7 +252,6 @@ function calculateDistance($current_location, $other_lat, $other_lng) {
                             <li><a class="dropdown-item" href="../settings/">Configurações</a></li>
                             <li><a class="dropdown-item" href="../friends/">Conexões</a></li>
                             <li><a class="dropdown-item" href="../chat/">Chat</a></li>
-                            <li><a class="dropdown-item" href="../searchplayers/">Buscar Jogadores</a></li>
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="../../components/Logout/">Logout</a></li>
                             <?php if ($is_admin): ?>
@@ -316,270 +265,241 @@ function calculateDistance($current_location, $other_lat, $other_lng) {
     </nav>
 
     <div class="container mt-4">
-        <div class="row">
-            <div class="col-12">
-                <h2 class="mb-4">
-                    <i class="bi bi-people-fill"></i> Buscar Jogadores
-                    <button class="btn btn-primary btn-sm ms-2" data-bs-toggle="collapse" data-bs-target="#locationSection">
-                        <i class="bi bi-geo-alt"></i> Definir Localização
-                    </button>
-                </h2>
-                
-                <!-- Seção de Localização (Colapsável) -->
+        <!-- Botões de Toggle -->
+        <div class="row text-center toggle-section">
+            <div class="col-md-3">
+                <button type="button" class="btn btn-primary w-100 notification-badge" data-bs-toggle="collapse" data-bs-target="#nearbyPlayers" aria-expanded="false" aria-controls="nearbyPlayers">
+                    <i class="bi bi-geo-alt"></i> Jogadores Próximos
+                    <?php if (count($nearby_players) > 0): ?>
+                        <span class="badge"><?php echo count($nearby_players); ?></span>
+                    <?php endif; ?>
+                </button>
+            </div>
+            <div class="col-md-3">
+                <button type="button" class="btn btn-success w-100 notification-badge" data-bs-toggle="collapse" data-bs-target="#similarPlayers" aria-expanded="false" aria-controls="similarPlayers">
+                    <i class="bi bi-heart"></i> Gostos Similares
+                    <?php if (count($similar_players) > 0): ?>
+                        <span class="badge"><?php echo count($similar_players); ?></span>
+                    <?php endif; ?>
+                </button>
+            </div>
+            <div class="col-md-3">
+                <button type="button" class="btn btn-info w-100 notification-badge" data-bs-toggle="collapse" data-bs-target="#recentPlayers" aria-expanded="false" aria-controls="recentPlayers">
+                    <i class="bi bi-clock"></i> Jogadores Recentes
+                    <?php if (count($recent_players) > 0): ?>
+                        <span class="badge"><?php echo count($recent_players); ?></span>
+                    <?php endif; ?>
+                </button>
+            </div>
+            <div class="col-md-3">
+                <button type="button" class="btn btn-warning w-100" data-bs-toggle="collapse" data-bs-target="#locationSection" aria-expanded="false" aria-controls="locationSection">
+                    <i class="bi bi-gear"></i> Configurar Local
+                </button>
+            </div>
+        </div>
+
+        <!-- Seção de Localização -->
+        <div class="collapse" id="locationSection">
+            <div class="card card-body mb-4">
+                <h5><i class="bi bi-geo-alt"></i> Configurar Localização</h5>
+                <?php if ($current_location): ?>
+                    <p class="text-success">
+                        <i class="bi bi-check-circle"></i> 
+                        Localização atual: <?= htmlspecialchars($current_location['city']) ?>, <?= htmlspecialchars($current_location['state']) ?>
+                    </p>
+                <?php else: ?>
+                    <p class="text-warning">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        Configure sua localização para encontrar jogadores próximos
+                    </p>
+                <?php endif; ?>
                 <?php $location->render($current_location); ?>
+            </div>
+        </div>
+
+        <!-- Jogadores Próximos -->
+        <div class="collapse" id="nearbyPlayers">
+            <div class="card card-body mb-4">
+                <h4 class="section-header">
+                    <i class="bi bi-geo-alt text-primary"></i> Jogadores Próximos
+                </h4>
                 
-                <!-- Filtros de Busca -->
-                <div class="search-filters">
-                    <form method="GET" id="searchForm">
-                        <div class="row">
-                            <div class="col-12">
-                                <h5><i class="bi bi-funnel"></i> Filtros de Busca</h5>
-                            </div>
-                        </div>
-                        
-                        <!-- Tipo de Match -->
-                        <div class="row mb-3">
-                            <div class="col-12">
-                                <label class="form-label fw-bold">Tipo de Busca:</label>
-                                <div class="match-type-selector">
-                                    <input type="radio" class="btn-check" name="match_type" id="match_similar" value="similar" <?= $search_filters['match_type'] === 'similar' ? 'checked' : '' ?>>
-                                    <label class="match-type-btn" for="match_similar">
-                                        <i class="bi bi-heart"></i> Gostos Similares
-                                    </label>
-                                    
-                                    <input type="radio" class="btn-check" name="match_type" id="match_nearby" value="nearby" <?= $search_filters['match_type'] === 'nearby' ? 'checked' : '' ?>>
-                                    <label class="match-type-btn" for="match_nearby">
-                                        <i class="bi bi-geo-alt"></i> Próximos
-                                    </label>
-                                    
-                                    <input type="radio" class="btn-check" name="match_type" id="match_all" value="all" <?= $search_filters['match_type'] === 'all' ? 'checked' : '' ?>>
-                                    <label class="match-type-btn" for="match_all">
-                                        <i class="bi bi-people"></i> Todos
-                                    </label>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="row">
-                            <!-- Distância -->
-                            <div class="col-md-6 mb-3">
-                                <label for="distance" class="form-label">
-                                    <i class="bi bi-compass"></i> 
-                                    Distância Máxima: <span id="distanceValue"><?= $search_filters['distance'] ?></span> km
-                                </label>
-                                <input type="range" class="form-range" id="distance" name="distance" 
-                                       min="5" max="500" step="5" value="<?= $search_filters['distance'] ?>"
-                                       oninput="document.getElementById('distanceValue').textContent = this.value">
-                            </div>
-                            
-                            <!-- Ordenação -->
-                            <div class="col-md-6 mb-3">
-                                <label for="sort" class="form-label"><i class="bi bi-sort-down"></i> Ordenar por:</label>
-                                <select class="form-select" id="sort" name="sort">
-                                    <option value="compatibility" <?= $search_filters['sort'] === 'compatibility' ? 'selected' : '' ?>>Compatibilidade</option>
-                                    <option value="distance" <?= $search_filters['sort'] === 'distance' ? 'selected' : '' ?>>Distância</option>
-                                    <option value="name" <?= $search_filters['sort'] === 'name' ? 'selected' : '' ?>>Nome</option>
-                                </select>
-                            </div>
-                        </div>
-                        
-                        <div class="row">
-                            <!-- Cidade -->
-                            <div class="col-md-6 mb-3">
-                                <label for="city" class="form-label"><i class="bi bi-building"></i> Cidade:</label>
-                                <input type="text" class="form-control" id="city" name="city" 
-                                       placeholder="Digite uma cidade..." value="<?= htmlspecialchars($search_filters['city']) ?>">
-                            </div>
-                            
-                            <!-- Estado -->
-                            <div class="col-md-6 mb-3">
-                                <label for="state" class="form-label"><i class="bi bi-map"></i> Estado:</label>
-                                <input type="text" class="form-control" id="state" name="state" 
-                                       placeholder="Digite um estado..." value="<?= htmlspecialchars($search_filters['state']) ?>">
-                            </div>
-                        </div>
-                        
-                        <!-- Tags Específicas -->
-                        <div class="row mb-3">
-                            <div class="col-12">
-                                <label class="form-label"><i class="bi bi-tags"></i> Filtrar por Tags Específicas:</label>
-                                <input type="text" class="form-control" name="tags" 
-                                       placeholder="Digite tags separadas por vírgula (ex: D&D 5e, Fantasia Medieval)"
-                                       value="<?= htmlspecialchars($search_filters['tags']) ?>">
-                                <small class="form-text text-muted">
-                                    Deixe em branco para buscar por compatibilidade geral
-                                </small>
-                            </div>
-                        </div>
-                        
-                        <div class="row">
-                            <div class="col-12 text-center">
-                                <button type="submit" class="btn btn-primary btn-lg">
-                                    <i class="bi bi-search"></i> Buscar Jogadores
-                                </button>
-                                <a href="?" class="btn btn-outline-secondary btn-lg ms-2">
-                                    <i class="bi bi-arrow-clockwise"></i> Limpar Filtros
-                                </a>
-                            </div>
-                        </div>
-                    </form>
-                </div>
-                
-                <!-- Resultados da Busca -->
-                <div class="search-results">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h4><i class="bi bi-person-lines-fill"></i> Jogadores Encontrados</h4>
-                        <span class="badge bg-primary fs-6">
-                            <?= $search_results->num_rows ?> resultados
-                        </span>
+                <?php if (empty($nearby_players)): ?>
+                    <div class="no-results">
+                        <?php if (!$current_location): ?>
+                            <i class="bi bi-geo-alt" style="font-size: 2rem;"></i>
+                            <p>Configure sua localização para encontrar jogadores próximos!</p>
+                        <?php else: ?>
+                            <i class="bi bi-search" style="font-size: 2rem;"></i>
+                            <p>Nenhum jogador encontrado em um raio de 50km da sua localização.</p>
+                        <?php endif; ?>
                     </div>
-                    
-                    <?php if ($search_results->num_rows === 0): ?>
-                        <div class="no-results">
-                            <i class="bi bi-search" style="font-size: 3rem; margin-bottom: 20px;"></i>
-                            <h5>Nenhum jogador encontrado</h5>
-                            <p>Tente ajustar os filtros de busca ou expandir a área de pesquisa.</p>
-                            <?php if (!$current_location): ?>
-                                <p class="text-warning">
-                                    <i class="bi bi-exclamation-triangle"></i>
-                                    <strong>Dica:</strong> Defina sua localização para encontrar jogadores próximos!
-                                </p>
-                            <?php endif; ?>
-                        </div>
-                    <?php else: ?>
-                        <div class="row">
-                            <?php while ($player = $search_results->fetch_assoc()): ?>
-                                <?php
-                                $player_tags = RPGTags::parseUserTags($player['preferences'] ?? '');
-                                $compatibility = calculateTagCompatibility($current_user_tags, $player_tags);
-                                $distance = calculateDistance($current_location, $player['latitude'], $player['longitude']);
-                                
-                                // Determinar classe de compatibilidade
-                                $comp_class = 'compatibility-low';
-                                if ($compatibility >= 70) $comp_class = 'compatibility-high';
-                                elseif ($compatibility >= 40) $comp_class = 'compatibility-medium';
-                                ?>
-                                
-                                <div class="col-lg-6 col-xl-4 mb-4">
-                                    <div class="player-card position-relative">
-                                        <!-- Badge de Compatibilidade -->
-                                        <?php if (!empty($current_user_tags) && !empty($player_tags)): ?>
-                                            <div class="compatibility-badge <?= $comp_class ?>">
-                                                <?= round($compatibility) ?>% Match
-                                            </div>
-                                        <?php endif; ?>
-                                        
-                                        <!-- Informações de Distância -->
-                                        <?php if ($distance !== null): ?>
-                                            <div class="distance-info">
-                                                <i class="bi bi-geo-alt"></i>
-                                                <?= round($distance, 1) ?> km de distância
-                                            </div>
-                                        <?php endif; ?>
-                                        
-                                        <!-- Informações do Jogador -->
-                                        <h5 class="mb-2">
-                                            <?= htmlspecialchars($player['name']) ?>
-                                            <small class="text-white-50">(@<?= htmlspecialchars($player['username']) ?>)</small>
-                                        </h5>
-                                        
-                                        <!-- Localização -->
-                                        <?php if ($player['city'] || $player['state']): ?>
-                                            <div class="location-status">
-                                                <i class="bi bi-pin-map"></i>
-                                                <?= htmlspecialchars($player['city'] ?? 'Cidade não informada') ?>, 
-                                                <?= htmlspecialchars($player['state'] ?? 'Estado não informado') ?>
-                                            </div>
-                                        <?php endif; ?>
-                                        
-                                        <!-- Preferences como Bio -->
-                                        <?php if (!empty($player['preferences'])): ?>
-                                            <p class="mt-3 mb-2">
-                                                <strong>Preferências:</strong> 
-                                                <?= htmlspecialchars(substr($player['preferences'], 0, 150)) ?>
-                                                <?= strlen($player['preferences']) > 150 ? '...' : '' ?>
-                                            </p>
-                                        <?php endif; ?>
-                                        
-                                        <!-- Tags do Jogador -->
-                                        <?php if (!empty($player_tags)): ?>
-                                            <div class="player-tags">
-                                                <h6><i class="bi bi-tags"></i> Preferências:</h6>
-                                                <?php 
-                                                $displayed_tags = array_slice($player_tags, 0, 5);
-                                                $remaining_count = count($player_tags) - 5;
-                                                
-                                                foreach ($displayed_tags as $tag): 
-                                                    $is_common = in_array($tag, $current_user_tags);
-                                                ?>
-                                                    <span class="badge <?= $is_common ? 'bg-warning text-dark' : 'bg-light text-dark' ?> me-1 mb-1">
-                                                        <?= $is_common ? '⭐ ' : '' ?><?= htmlspecialchars($tag) ?>
-                                                    </span>
-                                                <?php endforeach; ?>
-                                                
-                                                <?php if ($remaining_count > 0): ?>
-                                                    <span class="badge bg-secondary">+<?= $remaining_count ?> mais</span>
-                                                <?php endif; ?>
-                                            </div>
-                                        <?php endif; ?>
-                                        
-                                        <!-- Ações -->
-                                        <div class="d-flex gap-2 mt-3">
-                                            <a href="../../components/ViewProfile/?id=<?= $player['id'] ?>" class="btn btn-light btn-sm">
-                                                <i class="bi bi-person"></i> Ver Perfil
-                                            </a>
-                                            <a href="../chat/?user=<?= $player['id'] ?>" class="btn btn-success btn-sm">
-                                                <i class="bi bi-chat-dots"></i> Conversar
-                                            </a>
-                                        </div>
+                <?php else: ?>
+                    <div class="row">
+                        <?php foreach ($nearby_players as $player): ?>
+                            <div class="col-md-6 col-lg-4 mb-3">
+                                <div class="player-card">
+                                    <div class="distance-badge">
+                                        <i class="bi bi-compass"></i> <?= round($player['distance'], 1) ?>km
+                                    </div>
+                                    
+                                    <h6><?= htmlspecialchars($player['name']) ?></h6>
+                                    <small class="text-white-50">@<?= htmlspecialchars($player['username']) ?></small>
+                                    
+                                    <?php if ($player['city']): ?>
+                                        <p class="mt-2 mb-2">
+                                            <small><i class="bi bi-pin-map"></i> <?= htmlspecialchars($player['city']) ?>, <?= htmlspecialchars($player['state']) ?></small>
+                                        </p>
+                                    <?php endif; ?>
+                                    
+                                    <?php if ($player['preferences']): ?>
+                                        <p class="small">
+                                            <?= htmlspecialchars(substr($player['preferences'], 0, 80)) ?>...
+                                        </p>
+                                    <?php endif; ?>
+                                    
+                                    <div class="d-flex gap-2 mt-3">
+                                        <a href="../../components/ViewProfile/?id=<?= $player['id'] ?>" class="btn btn-light btn-sm">
+                                            <i class="bi bi-person"></i> Perfil
+                                        </a>
+                                        <a href="../chat/?user=<?= $player['id'] ?>" class="btn btn-success btn-sm">
+                                            <i class="bi bi-chat-dots"></i> Chat
+                                        </a>
                                     </div>
                                 </div>
-                            <?php endwhile; ?>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
+            </div>
+        </div>
+
+        <!-- Jogadores com Gostos Similares -->
+        <div class="collapse" id="similarPlayers">
+            <div class="card card-body mb-4">
+                <h4 class="section-header">
+                    <i class="bi bi-heart text-success"></i> Jogadores com Gostos Similares
+                </h4>
+                
+                <?php if (empty($similar_players)): ?>
+                    <div class="no-results">
+                        <?php if (empty($current_user_tags)): ?>
+                            <i class="bi bi-tags" style="font-size: 2rem;"></i>
+                            <p>Complete suas preferências no perfil para encontrar jogadores com gostos similares!</p>
+                            <a href="../Profile/" class="btn btn-primary">Editar Perfil</a>
+                        <?php else: ?>
+                            <i class="bi bi-search" style="font-size: 2rem;"></i>
+                            <p>Nenhum jogador com gostos similares encontrado no momento.</p>
+                        <?php endif; ?>
+                    </div>
+                <?php else: ?>
+                    <div class="row">
+                        <?php foreach ($similar_players as $player): ?>
+                            <?php
+                            $player_tags = RPGTags::parseUserTags($player['preferences']);
+                            $distance = calculateDistance($current_location, $player['latitude'], $player['longitude']);
+                            ?>
+                            <div class="col-md-6 col-lg-4 mb-3">
+                                <div class="player-card">
+                                    <div class="compatibility-badge">
+                                        <i class="bi bi-heart-fill"></i> <?= round($player['compatibility']) ?>% Match
+                                    </div>
+                                    
+                                    <?php if ($distance): ?>
+                                        <div class="distance-badge">
+                                            <i class="bi bi-compass"></i> <?= round($distance, 1) ?>km
+                                        </div>
+                                    <?php endif; ?>
+                                    
+                                    <h6><?= htmlspecialchars($player['name']) ?></h6>
+                                    <small class="text-white-50">@<?= htmlspecialchars($player['username']) ?></small>
+                                    
+                                    <?php if ($player['city']): ?>
+                                        <p class="mt-2 mb-2">
+                                            <small><i class="bi bi-pin-map"></i> <?= htmlspecialchars($player['city']) ?>, <?= htmlspecialchars($player['state']) ?></small>
+                                        </p>
+                                    <?php endif; ?>
+                                    
+                                    <!-- Tags em comum -->
+                                    <?php 
+                                    $common_tags = array_intersect($current_user_tags, $player_tags);
+                                    if (!empty($common_tags)): 
+                                    ?>
+                                        <div class="mt-2">
+                                            <small><strong>Em comum:</strong></small><br>
+                                            <?php foreach (array_slice($common_tags, 0, 3) as $tag): ?>
+                                                <span class="badge bg-warning text-dark me-1"><?= htmlspecialchars($tag) ?></span>
+                                            <?php endforeach; ?>
+                                        </div>
+                                    <?php endif; ?>
+                                    
+                                    <div class="d-flex gap-2 mt-3">
+                                        <a href="../../components/ViewProfile/?id=<?= $player['id'] ?>" class="btn btn-light btn-sm">
+                                            <i class="bi bi-person"></i> Perfil
+                                        </a>
+                                        <a href="../chat/?user=<?= $player['id'] ?>" class="btn btn-success btn-sm">
+                                            <i class="bi bi-chat-dots"></i> Chat
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
+            </div>
+        </div>
+
+        <!-- Jogadores Recentes -->
+        <div class="collapse" id="recentPlayers">
+            <div class="card card-body mb-4">
+                <h4 class="section-header">
+                    <i class="bi bi-clock text-info"></i> Jogadores Recentes
+                </h4>
+                
+                <div class="row">
+                    <?php foreach ($recent_players as $player): ?>
+                        <?php
+                        $distance = calculateDistance($current_location, $player['latitude'], $player['longitude']);
+                        ?>
+                        <div class="col-md-6 col-lg-4 mb-3">
+                            <div class="player-card">
+                                <?php if ($distance): ?>
+                                    <div class="distance-badge">
+                                        <i class="bi bi-compass"></i> <?= round($distance, 1) ?>km
+                                    </div>
+                                <?php endif; ?>
+                                
+                                <h6><?= htmlspecialchars($player['name']) ?></h6>
+                                <small class="text-white-50">@<?= htmlspecialchars($player['username']) ?></small>
+                                
+                                <?php if ($player['city']): ?>
+                                    <p class="mt-2 mb-2">
+                                        <small><i class="bi bi-pin-map"></i> <?= htmlspecialchars($player['city']) ?>, <?= htmlspecialchars($player['state']) ?></small>
+                                    </p>
+                                <?php endif; ?>
+                                
+                                <?php if ($player['preferences']): ?>
+                                    <p class="small">
+                                        <?= htmlspecialchars(substr($player['preferences'], 0, 80)) ?>...
+                                    </p>
+                                <?php endif; ?>
+                                
+                                <div class="d-flex gap-2 mt-3">
+                                    <a href="../../components/ViewProfile/?id=<?= $player['id'] ?>" class="btn btn-light btn-sm">
+                                        <i class="bi bi-person"></i> Perfil
+                                    </a>
+                                    <a href="../chat/?user=<?= $player['id'] ?>" class="btn btn-success btn-sm">
+                                        <i class="bi bi-chat-dots"></i> Chat
+                                    </a>
+                                </div>
+                            </div>
                         </div>
-                    <?php endif; ?>
+                    <?php endforeach; ?>
                 </div>
             </div>
         </div>
     </div>
 
-    <footer class="mt-5 py-4 bg-dark text-white text-center">
-        <p>&copy; <?php echo date("Y"); ?> CritMeet - Conectando Jogadores de RPG</p>
-    </footer>
-
-    <script>
-        // Auto-submit do formulário quando os radio buttons mudarem
-        document.querySelectorAll('input[name="match_type"]').forEach(function(radio) {
-            radio.addEventListener('change', function() {
-                document.getElementById('searchForm').submit();
-            });
-        });
-        
-        // Submit automático quando o select de ordenação mudar
-        document.getElementById('sort').addEventListener('change', function() {
-            document.getElementById('searchForm').submit();
-        });
-        
-        // Debounce para os campos de texto
-        let timeout;
-        function debounceSubmit() {
-            clearTimeout(timeout);
-            timeout = setTimeout(function() {
-                document.getElementById('searchForm').submit();
-            }, 1000);
-        }
-        
-        document.getElementById('city').addEventListener('input', debounceSubmit);
-        document.getElementById('state').addEventListener('input', debounceSubmit);
-        
-        // Smooth scroll para resultados após busca
-        if (window.location.search) {
-            setTimeout(function() {
-                document.querySelector('.search-results').scrollIntoView({
-                    behavior: 'smooth',
-                    block: 'start'
-                });
-            }, 500);
-        }
-    </script>
+    <?php include 'footer.php'; ?>
 </body>
 </html>
