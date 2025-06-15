@@ -1,7 +1,7 @@
 <?php
 session_start();
-require_once '../../config.php';
-require_once '../../components/Tags/index.php';
+require_once __DIR__ . '/../../config.php';
+require_once __DIR__ . '/../../components/Tags/index.php';
 
 // Verificar se o usuário está logado
 if (!isset($_SESSION['user_id'])) {
