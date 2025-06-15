@@ -27,10 +27,34 @@ class SimpleMatchmaker {
     private $mysqli;
     private $user_id;
     private $max_distance = 50;
+    private $rejected_users = [];
     
     public function __construct($mysqli, $user_id) {
         $this->mysqli = $mysqli;
         $this->user_id = $user_id;
+        $this->loadRejectedUsers();
+    }
+
+    private function loadRejectedUsers() {
+        if (!isset($_SESSION['rejected_users'])) {
+            $_SESSION['rejected_users'] = [];
+        }
+        
+        // Limpar rejeitados antigos (mais de 24 horas)
+        $current_time = time();
+        foreach ($_SESSION['rejected_users'] as $user_id => $timestamp) {
+            if ($current_time - $timestamp > 86400) { // 24 horas = 86400 segundos
+                unset($_SESSION['rejected_users'][$user_id]);
+            }
+        }
+        $this->rejected_users = array_keys($_SESSION['rejected_users']);
+    }
+
+    public function rejectUser($target_user_id) {
+        $_SESSION['rejected_users'][$target_user_id] = time();
+        $this->rejected_users[] = $target_user_id;
+        
+        return ['success' => true, 'message' => 'Usuário removido da lista temporariamente.'];
     }
     
     public function getCurrentUserLocation() {
