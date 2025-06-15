@@ -40,7 +40,7 @@ if (isset($_POST['action']) && $_POST['action'] === 'update_location') {
     exit();
 }
 
-// --- Adicionar amigo ---
+// Adicionar amigo
 if (isset($_POST['add_friend'])) {
     $friend_id = $_POST['friend_id'];
     $response = ['success' => false, 'message' => ''];
@@ -99,107 +99,139 @@ $user_result = $user_stmt->get_result();
 $current_user = $user_result->fetch_assoc();
 $current_user_tags = RPGTags::parseUserTags($current_user['preferences'] ?? '');
 
+// Obter solicitações pendentes
+$pending_requests = $friendRequest->getPendingRequests();
+
 // Parâmetros de busca
-$search_filters = [
-    'distance' => min(50, max(5, intval($_GET['distance'] ?? 20))), // Limitado a 50km
-    'city' => $_GET['city'] ?? '',
-    'state' => $_GET['state'] ?? '',
-    'tags' => $_GET['tags'] ?? '',
-    'similar_preferences' => isset($_GET['similar_preferences']) ? 1 : 0
-];
+$search_type = $_GET['search_type'] ?? 'nearby';
+$search_username = $_GET['username'] ?? '';
+$specific_tags = $_GET['tags'] ?? '';
+$distance_limit = min(100, max(5, intval($_GET['distance'] ?? 20)));
 
-// Construir query de busca - buscar usuários que não são amigos e não têm pedidos pendentes
+// Resultados da busca
 $search_results = [];
-$base_query = "SELECT u.id, u.username, u.name, u.preferences, u.gender, u.pronouns, u.image,
-                      ul.latitude, ul.longitude, ul.city, ul.state, ul.address";
 
-$from_clause = " FROM users u 
-                 LEFT JOIN user_locations ul ON u.id = ul.user_id 
-                 WHERE u.id != ? 
-                 AND u.id NOT IN (
-                     SELECT CASE 
-                         WHEN f.user_id = ? THEN f.friend_id 
-                         ELSE f.user_id 
-                     END 
-                     FROM friends f 
-                     WHERE (f.user_id = ? OR f.friend_id = ?) 
-                     AND f.status IN ('accepted', 'pending')
-                 )";
+// Base query - excluir usuários que já são amigos ou têm pedidos pendentes
+$base_exclusion = " AND u.id NOT IN (
+    SELECT CASE 
+        WHEN f.user_id = ? THEN f.friend_id 
+        ELSE f.user_id 
+    END 
+    FROM friends f 
+    WHERE (f.user_id = ? OR f.friend_id = ?) 
+    AND f.status IN ('accepted', 'pending')
+)";
 
-$params = [$user_id, $user_id, $user_id, $user_id];
-$param_types = "iiii";
-
-// Filtros de localização - apenas usuários com coordenadas
-if ($current_location && $search_filters['distance'] > 0) {
-    $from_clause .= " AND ul.latitude IS NOT NULL AND ul.longitude IS NOT NULL";
-    $from_clause .= " AND (
-        6371 * acos(
-            cos(radians(?)) * cos(radians(ul.latitude)) * 
-            cos(radians(ul.longitude) - radians(?)) + 
-            sin(radians(?)) * sin(radians(ul.latitude))
-        )
-    ) <= ?";
+if ($search_type === 'username' && !empty($search_username)) {
+    // Busca por username específico
+    $sql = "SELECT u.id, u.username, u.name, u.preferences, u.gender, u.pronouns, u.image,
+                   ul.latitude, ul.longitude, ul.city, ul.state
+            FROM users u 
+            LEFT JOIN user_locations ul ON u.id = ul.user_id 
+            WHERE u.id != ? AND u.username LIKE ?" . $base_exclusion . "
+            ORDER BY u.username ASC LIMIT 10";
     
-    $params[] = $current_location['latitude'];
-    $params[] = $current_location['longitude'];
-    $params[] = $current_location['latitude'];
-    $params[] = $search_filters['distance'];
-    $param_types .= "dddd";
-}
-
-// Filtro por cidade/estado
-if (!empty($search_filters['city'])) {
-    $from_clause .= " AND ul.city LIKE ?";
-    $params[] = "%" . $search_filters['city'] . "%";
-    $param_types .= "s";
-}
-
-if (!empty($search_filters['state'])) {
-    $from_clause .= " AND ul.state LIKE ?";
-    $params[] = "%" . $search_filters['state'] . "%";
-    $param_types .= "s";
-}
-
-// Filtro por tags específicas
-if (!empty($search_filters['tags'])) {
-    $search_tags = array_map('trim', explode(',', $search_filters['tags']));
+    $stmt = $mysqli->prepare($sql);
+    $search_param = "%" . $search_username . "%";
+    $stmt->bind_param("isiii", $user_id, $search_param, $user_id, $user_id, $user_id);
+    
+} elseif ($search_type === 'nearby' && $current_location) {
+    // Busca por jogadores próximos
+    $sql = "SELECT u.id, u.username, u.name, u.preferences, u.gender, u.pronouns, u.image,
+                   ul.latitude, ul.longitude, ul.city, ul.state,
+                   (6371 * acos(
+                       cos(radians(?)) * cos(radians(ul.latitude)) * 
+                       cos(radians(ul.longitude) - radians(?)) + 
+                       sin(radians(?)) * sin(radians(ul.latitude))
+                   )) as distance
+            FROM users u 
+            JOIN user_locations ul ON u.id = ul.user_id 
+            WHERE u.id != ? 
+            AND ul.latitude IS NOT NULL 
+            AND ul.longitude IS NOT NULL" . $base_exclusion . "
+            HAVING distance <= ?
+            ORDER BY distance ASC LIMIT 20";
+    
+    $stmt = $mysqli->prepare($sql);
+    $stmt->bind_param("dddiiiii", 
+        $current_location['latitude'], 
+        $current_location['longitude'], 
+        $current_location['latitude'], 
+        $user_id, 
+        $user_id, $user_id, $user_id,
+        $distance_limit
+    );
+    
+} elseif ($search_type === 'similar' && !empty($current_user_tags)) {
+    // Busca por preferências similares
     $tag_conditions = [];
-    foreach ($search_tags as $tag) {
+    $params = [$user_id];
+    $param_types = "i";
+    
+    foreach ($current_user_tags as $tag) {
         $tag_conditions[] = "u.preferences LIKE ?";
         $params[] = "%" . $tag . "%";
         $param_types .= "s";
     }
+    
+    $sql = "SELECT u.id, u.username, u.name, u.preferences, u.gender, u.pronouns, u.image,
+                   ul.latitude, ul.longitude, ul.city, ul.state
+            FROM users u 
+            LEFT JOIN user_locations ul ON u.id = ul.user_id 
+            WHERE u.id != ? 
+            AND (" . implode(" OR ", $tag_conditions) . ")" . $base_exclusion . "
+            ORDER BY u.name ASC LIMIT 20";
+    
+    // Adicionar parâmetros de exclusão
+    $params[] = $user_id;
+    $params[] = $user_id;
+    $params[] = $user_id;
+    $param_types .= "iii";
+    
+    $stmt = $mysqli->prepare($sql);
+    $stmt->bind_param($param_types, ...$params);
+    
+} elseif ($search_type === 'specific' && !empty($specific_tags)) {
+    // Busca por tags específicas
+    $search_tags = array_map('trim', explode(',', $specific_tags));
+    $tag_conditions = [];
+    $params = [$user_id];
+    $param_types = "i";
+    
+    foreach ($search_tags as $tag) {
+        if (!empty($tag)) {
+            $tag_conditions[] = "u.preferences LIKE ?";
+            $params[] = "%" . $tag . "%";
+            $param_types .= "s";
+        }
+    }
+    
     if (!empty($tag_conditions)) {
-        $from_clause .= " AND (" . implode(" OR ", $tag_conditions) . ")";
+        $sql = "SELECT u.id, u.username, u.name, u.preferences, u.gender, u.pronouns, u.image,
+                       ul.latitude, ul.longitude, ul.city, ul.state
+                FROM users u 
+                LEFT JOIN user_locations ul ON u.id = ul.user_id 
+                WHERE u.id != ? 
+                AND (" . implode(" OR ", $tag_conditions) . ")" . $base_exclusion . "
+                ORDER BY u.name ASC LIMIT 20";
+        
+        // Adicionar parâmetros de exclusão
+        $params[] = $user_id;
+        $params[] = $user_id;
+        $params[] = $user_id;
+        $param_types .= "iii";
+        
+        $stmt = $mysqli->prepare($sql);
+        $stmt->bind_param($param_types, ...$params);
     }
 }
 
-// Filtro por preferências similares
-if ($search_filters['similar_preferences'] && !empty($current_user_tags)) {
-    $similar_conditions = [];
-    foreach ($current_user_tags as $tag) {
-        $similar_conditions[] = "u.preferences LIKE ?";
-        $params[] = "%" . $tag . "%";
-        $param_types .= "s";
-    }
-    if (!empty($similar_conditions)) {
-        $from_clause .= " AND (" . implode(" OR ", $similar_conditions) . ")";
-    }
+// Executar busca se houver statement preparado
+if (isset($stmt)) {
+    $stmt->execute();
+    $search_results = $stmt->get_result();
+    $stmt->close();
 }
-
-$order_clause = " ORDER BY u.name ASC LIMIT 20";
-
-$full_query = $base_query . $from_clause . $order_clause;
-
-$search_stmt = $mysqli->prepare($full_query);
-if (!empty($params)) {
-    $search_stmt->bind_param($param_types, ...$params);
-}
-$search_stmt->execute();
-$search_results = $search_stmt->get_result();
-
-// Obter solicitações pendentes
-$pending_requests = $friendRequest->getPendingRequests();
 
 // Função para calcular distância
 function calculateDistance($current_location, $other_lat, $other_lng) {
@@ -219,7 +251,7 @@ function calculateDistance($current_location, $other_lat, $other_lng) {
     return 6371 * $c;
 }
 
-// Função para calcular compatibilidade de tags
+// Función para calcular compatibilidade
 function calculateTagCompatibility($user_tags, $other_tags) {
     if (empty($user_tags) || empty($other_tags)) return 0;
     
@@ -239,13 +271,81 @@ function calculateTagCompatibility($user_tags, $other_tags) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Buscar Jogadores - CritMeet</title>
-    <link rel="stylesheet" href="../../../assets/mobile.css" media="screen and (max-width: 600px)">
-    <link rel="stylesheet" href="../../../assets/desktop.css" media="screen and (min-width: 601px)">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     
     <style>
+        .search-card {
+            border: 1px solid #dee2e6;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 25px;
+            background: linear-gradient(135deg, #fff 0%, #f8f9fa 100%);
+            box-shadow: 0 2px 15px rgba(0,0,0,0.1);
+        }
+        
+        .filter-tabs .nav-link {
+            border-radius: 25px;
+            margin: 0 5px;
+            transition: all 0.3s ease;
+        }
+        
+        .filter-tabs .nav-link.active {
+            background: linear-gradient(45deg, #007bff, #0056b3);
+            border-color: transparent;
+        }
+        
+        .player-card {
+            border: 1px solid #dee2e6;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            background: white;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        
+        .player-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        }
+        
+        .player-image {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 3px solid #dee2e6;
+        }
+        
+        .player-image-placeholder {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            background: linear-gradient(45deg, #dee2e6, #adb5bd);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #6c757d;
+            font-size: 1.8rem;
+        }
+        
+        .compatibility-badge {
+            background: linear-gradient(45deg, #28a745, #20c997);
+            color: white;
+            padding: 3px 8px;
+            border-radius: 15px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+        
+        .distance-badge {
+            background: linear-gradient(45deg, #17a2b8, #138496);
+            color: white;
+            padding: 3px 8px;
+            border-radius: 15px;
+            font-size: 0.75rem;
+        }
+        
         .notification-badge {
             position: relative;
         }
@@ -257,73 +357,6 @@ function calculateTagCompatibility($user_tags, $other_tags) {
             background-color: #dc3545;
             color: white;
             border-radius: 50%;
-            padding: 2px 6px;
-            font-size: 0.7rem;
-        }
-        
-        .toggle-section {
-            margin-bottom: 20px;
-        }
-        
-        .player-card {
-            border: 1px solid #dee2e6;
-            border-radius: 12px;
-            padding: 20px;
-            margin-bottom: 20px;
-            background: linear-gradient(135deg, #fff 0%, #f8f9fa 100%);
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
-        }
-        
-        .player-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-        }
-        
-        .search-filters {
-            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-            border-radius: 12px;
-            padding: 20px;
-            margin-bottom: 20px;
-            border: 1px solid #dee2e6;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        
-        .compatibility-badge {
-            background: linear-gradient(45deg, #28a745, #20c997);
-            color: white;
-            padding: 4px 8px;
-            border-radius: 20px;
-            font-size: 0.8rem;
-            font-weight: 500;
-        }
-        
-        .distance-info {
-            color: #6c757d;
-            font-size: 0.9rem;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-        
-        .player-image {
-            width: 80px;
-            height: 80px;
-            border-radius: 50%;
-            object-fit: cover;
-            border: 3px solid #dee2e6;
-        }
-        
-        .player-image-placeholder {
-            width: 80px;
-            height: 80px;
-            border-radius: 50%;
-            background: #dee2e6;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #6c757d;
-            font-size: 2rem;
         }
         
         .btn-add-friend {
@@ -337,12 +370,6 @@ function calculateTagCompatibility($user_tags, $other_tags) {
             transform: scale(1.05);
         }
         
-        .btn-add-friend:disabled {
-            background: #6c757d;
-            cursor: not-allowed;
-            transform: none;
-        }
-        
         .alert-floating {
             position: fixed;
             top: 20px;
@@ -351,26 +378,16 @@ function calculateTagCompatibility($user_tags, $other_tags) {
             min-width: 300px;
         }
         
-        .tag-preview {
-            max-height: 60px;
-            overflow: hidden;
-            position: relative;
-        }
-        
-        .tag-preview::after {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            height: 20px;
-            background: linear-gradient(transparent, white);
+        .search-type-description {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 12px;
+            margin: 15px 0;
+            border-radius: 0 8px 8px 0;
         }
     </style>
 </head>
 <body>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-
     <!-- Navbar -->
     <nav class="navbar navbar-expand-lg bg-body-tertiary" data-bs-theme="dark">
         <div class="container-fluid">
@@ -403,147 +420,226 @@ function calculateTagCompatibility($user_tags, $other_tags) {
     </nav>
 
     <div class="container mt-4">
-        <h2><i class="bi bi-search"></i> Buscar Jogadores</h2>
-        
-        <!-- Botões de Toggle -->
-        <div class="row text-center toggle-section">
+        <div class="row">
             <div class="col-md-3">
-                <button type="button" class="btn btn-primary w-100 notification-badge" data-bs-toggle="collapse" data-bs-target="#friendRequests" aria-expanded="false" aria-controls="friendRequests">
-                    <i class="bi bi-person-plus"></i> Solicitações
-                    <?php if (count($pending_requests) > 0): ?>
-                        <span class="badge"><?php echo count($pending_requests); ?></span>
-                    <?php endif; ?>
-                </button>
-            </div>
-            <div class="col-md-3">
-                <button type="button" class="btn btn-warning w-100" data-bs-toggle="collapse" data-bs-target="#locationSection" aria-expanded="false" aria-controls="locationSection">
-                    <i class="bi bi-geo-alt"></i> Localização
-                </button>
-            </div>
-            <div class="col-md-3">
-                <button type="button" class="btn btn-info w-100" data-bs-toggle="collapse" data-bs-target="#searchFilters" aria-expanded="false" aria-controls="searchFilters">
-                    <i class="bi bi-funnel"></i> Filtros
-                </button>
-            </div>
-            <div class="col-md-3">
-                <button type="button" class="btn btn-success w-100" data-bs-toggle="collapse" data-bs-target="#searchResults" aria-expanded="true" aria-controls="searchResults">
-                    <i class="bi bi-people"></i> Resultados
-                </button>
-            </div>
-        </div>
-        
-        <!-- Solicitações de Amizade Pendentes -->
-        <?php $friendRequest->render($pending_requests); ?>
-        
-        <!-- Seção de Localização -->
-        <?php $location->render($current_location); ?>
-        
-        <!-- Filtros de Busca -->
-        <div class="collapse" id="searchFilters">
-            <div class="search-filters">
-                <h5><i class="bi bi-funnel"></i> Filtros de Busca</h5>
-                <form method="GET" id="searchForm">
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="distance" class="form-label">Distância Máxima: <span id="distanceValue"><?= $search_filters['distance'] ?></span> km</label>
-                            <input type="range" class="form-range" id="distance" name="distance" 
-                                   min="5" max="50" step="5" value="<?= $search_filters['distance'] ?>"
-                                   oninput="document.getElementById('distanceValue').textContent = this.value">
-                        </div>
-                        
-                        <div class="col-md-6 mb-3">
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" id="similar_preferences" name="similar_preferences" 
-                                       <?= $search_filters['similar_preferences'] ? 'checked' : '' ?>>
-                                <label class="form-check-label" for="similar_preferences">
-                                    <strong>Buscar por preferências similares às minhas</strong>
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="row">
-                        <div class="col-md-4 mb-3">
-                            <label for="city" class="form-label">Cidade:</label>
-                            <input type="text" class="form-control" id="city" name="city" 
-                                   placeholder="Digite uma cidade..." value="<?= htmlspecialchars($search_filters['city']) ?>">
-                        </div>
-                        
-                        <div class="col-md-4 mb-3">
-                            <label for="state" class="form-label">Estado:</label>
-                            <input type="text" class="form-control" id="state" name="state" 
-                                   placeholder="Digite um estado..." value="<?= htmlspecialchars($search_filters['state']) ?>">
-                        </div>
-                        
-                        <div class="col-md-4 mb-3">
-                            <label for="tags" class="form-label">Tags específicas:</label>
-                            <input type="text" class="form-control" id="tags" name="tags" 
-                                   placeholder="Ex: D&D 5e, Horror, Narrativo..." value="<?= htmlspecialchars($search_filters['tags']) ?>">
-                        </div>
-                    </div>
-                    
-                    <div class="d-flex gap-2">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="bi bi-search"></i> Buscar
-                        </button>
-                        <a href="?" class="btn btn-secondary">
-                            <i class="bi bi-arrow-clockwise"></i> Limpar
-                        </a>
-                    </div>
-                </form>
-            </div>
-        </div>
-        
-        <!-- Resultados da Busca -->
-        <div class="collapse show" id="searchResults">
-            <div class="search-results">
-                <h4><i class="bi bi-people"></i> Jogadores Encontrados (<?= $search_results->num_rows ?>)</h4>
-                
-                <?php if ($search_results->num_rows === 0): ?>
-                    <div class="alert alert-info">
-                        <i class="bi bi-info-circle"></i> Nenhum jogador encontrado com os filtros aplicados.
-                        <?php if (!$current_location): ?>
-                            <br><strong>Dica:</strong> Defina sua localização para encontrar jogadores próximos!
+                <!-- Solicitações Pendentes -->
+                <div class="search-card">
+                    <h6 class="notification-badge">
+                        <i class="bi bi-person-plus"></i> Solicitações
+                        <?php if (count($pending_requests) > 0): ?>
+                            <span class="badge bg-danger"><?php echo count($pending_requests); ?></span>
                         <?php endif; ?>
+                    </h6>
+                    
+                    <?php if (count($pending_requests) > 0): ?>
+                        <?php foreach ($pending_requests as $request): ?>
+                            <div class="d-flex align-items-center justify-content-between py-2 border-bottom">
+                                <div>
+                                    <small class="fw-bold"><?= htmlspecialchars($request['name']) ?></small>
+                                    <br><small class="text-muted">@<?= htmlspecialchars($request['username']) ?></small>
+                                </div>
+                                <div>
+                                    <form method="POST" class="d-inline">
+                                        <input type="hidden" name="friendship_id" value="<?= $request['id'] ?>">
+                                        <button type="submit" name="accept_friend" class="btn btn-success btn-sm">✓</button>
+                                        <button type="submit" name="reject_friend" class="btn btn-danger btn-sm">✗</button>
+                                    </form>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    <?php else: ?>
+                        <p class="text-muted small mb-0">Nenhuma solicitação pendente</p>
+                    <?php endif; ?>
+                </div>
+
+                <!-- Localização -->
+                <?php if ($current_location): ?>
+                    <div class="search-card">
+                        <h6><i class="bi bi-geo-alt-fill text-success"></i> Sua Localização</h6>
+                        <p class="small mb-2">
+                            <strong><?= htmlspecialchars($current_location['city']) ?></strong><br>
+                            <?= htmlspecialchars($current_location['state']) ?>
+                        </p>
+                        <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#locationModal">
+                            <i class="bi bi-pencil"></i> Alterar
+                        </button>
                     </div>
                 <?php else: ?>
-                    <div class="row">
-                        <?php while ($player = $search_results->fetch_assoc()): ?>
-                            <?php
-                            $distance = calculateDistance($current_location, $player['latitude'], $player['longitude']);
-                            $compatibility = calculateTagCompatibility($current_user_tags, $player['preferences']);
-                            $player_tags = RPGTags::parseUserTags($player['preferences']);
-                            ?>
-                            
-                            <div class="col-md-6 col-lg-4 mb-3">
-                                <div class="player-card">
-                                    <div class="d-flex align-items-start mb-3">
-                                        <div class="me-3">
-                                            <?php if ($player['image']): ?>
-                                                <img src="data:image/jpeg;base64,<?= $player['image'] ?>" alt="Foto de perfil" class="player-image">
-                                            <?php else: ?>
-                                                <div class="player-image-placeholder">
-                                                    <i class="bi bi-person-fill"></i>
-                                                </div>
-                                            <?php endif; ?>
-                                        </div>
-                                        <div class="flex-grow-1">
-                                            <h6 class="mb-1"><?= htmlspecialchars($player['name']) ?></h6>
-                                            <small class="text-muted">@<?= htmlspecialchars($player['username']) ?></small>
-                                            
-                                            <?php if ($compatibility > 0): ?>
-                                                <div class="mt-1">
-                                                    <span class="compatibility-badge">
-                                                        <?= round($compatibility) ?>% compatível
-                                                    </span>
-                                                </div>
-                                            <?php endif; ?>
-                                        </div>
-                                    </div>
-                                    
-                                    <?php if ($distance !== null): ?>
-                                        <div class="distance-info mb-2">
-                                            <i class="bi bi-geo-alt"></i> <?= round($distance, 1) ?> km de distância
+                    <div class="search-card">
+                        <h6><i class="bi bi-geo-alt text-warning"></i> Localização</h6>
+                        <p class="text-muted small">Defina sua localização para encontrar jogadores próximos</p>
+                        <button class="btn btn-warning btn-sm" data-bs-toggle="modal" data-bs-target="#locationModal">
+                            <i class="bi bi-plus"></i> Definir
+                        </button>
+                    </div>
+                <?php endif; ?>
+            </div>
+
+            <div class="col-md-9">
+                <!-- Filtros de Busca -->
+                <div class="search-card">
+                    <h4><i class="bi bi-search"></i> Buscar Jogadores</h4>
+                    
+                    <!-- Tabs de Filtro -->
+                    <ul class="nav nav-pills filter-tabs justify-content-center mb-4" role="tablist">
+                        <li class="nav-item">
+                            <a class="nav-link <?= $search_type === 'nearby' ? 'active' : '' ?>" href="?search_type=nearby">
+                                <i class="bi bi-geo-alt"></i> Próximos
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link <?= $search_type === 'similar' ? 'active' : '' ?>" href="?search_type=similar">
+                                <i class="bi bi-heart"></i> Similares
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link <?= $search_type === 'specific' ? 'active' : '' ?>" href="?search_type=specific">
+                                <i class="bi bi-tags"></i> Específicos
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link <?= $search_type === 'username' ? 'active' : '' ?>" href="?search_type=username">
+                                <i class="bi bi-person-search"></i> Username
+                            </a>
+                        </li>
+                    </ul>
+
+                    <!-- Formulários de Busca -->
+                    <?php if ($search_type === 'nearby'): ?>
+                        <div class="search-type-description">
+                            <strong><i class="bi bi-info-circle"></i> Jogadores Próximos:</strong> 
+                            <?php if ($current_location): ?>
+                                Encontre jogadores perto de <?= htmlspecialchars($current_location['city']) ?>, <?= htmlspecialchars($current_location['state']) ?>
+                            <?php else: ?>
+                                <span class="text-warning">Configure sua localização primeiro!</span>
+                            <?php endif; ?>
+                        </div>
+                        
+                        <?php if ($current_location): ?>
+                            <form method="GET" class="row g-3">
+                                <input type="hidden" name="search_type" value="nearby">
+                                <div class="col-md-6">
+                                    <label class="form-label">Distância Máxima: <span id="distValue"><?= $distance_limit ?></span> km</label>
+                                    <input type="range" class="form-range" name="distance" min="5" max="100" step="5" 
+                                           value="<?= $distance_limit ?>" oninput="document.getElementById('distValue').textContent = this.value">
+                                </div>
+                                <div class="col-md-6 d-flex align-items-end">
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="bi bi-search"></i> Buscar
+                                    </button>
+                                </div>
+                            </form>
+                        <?php endif; ?>
+
+                    <?php elseif ($search_type === 'similar'): ?>
+                        <div class="search-type-description">
+                            <strong><i class="bi bi-info-circle"></i> Preferências Similares:</strong> 
+                            <?php if (!empty($current_user_tags)): ?>
+                                Baseado nas suas tags: <?= implode(', ', array_slice($current_user_tags, 0, 3)) ?><?= count($current_user_tags) > 3 ? '...' : '' ?>
+                            <?php else: ?>
+                                <span class="text-warning">Configure suas preferências no perfil primeiro!</span>
+                            <?php endif; ?>
+                        </div>
+                        
+                        <?php if (!empty($current_user_tags)): ?>
+                            <form method="GET">
+                                <input type="hidden" name="search_type" value="similar">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="bi bi-search"></i> Buscar Jogadores Similares
+                                </button>
+                            </form>
+                        <?php endif; ?>
+
+                    <?php elseif ($search_type === 'specific'): ?>
+                        <div class="search-type-description">
+                            <strong><i class="bi bi-info-circle"></i> Tags Específicas:</strong> 
+                            Busque por preferências específicas (ex: D&D 5e, Horror, Narrativo)
+                        </div>
+                        
+                        <form method="GET" class="row g-3">
+                            <input type="hidden" name="search_type" value="specific">
+                            <div class="col-md-8">
+                                <input type="text" class="form-control" name="tags" 
+                                       placeholder="Digite as tags separadas por vírgula..." 
+                                       value="<?= htmlspecialchars($specific_tags) ?>">
+                            </div>
+                            <div class="col-md-4">
+                                <button type="submit" class="btn btn-primary w-100">
+                                    <i class="bi bi-search"></i> Buscar
+                                </button>
+                            </div>
+                        </form>
+
+                    <?php elseif ($search_type === 'username'): ?>
+                        <div class="search-type-description">
+                            <strong><i class="bi bi-info-circle"></i> Busca por Username:</strong> 
+                            Encontre um jogador específico pelo nome de usuário
+                        </div>
+                        
+                        <form method="GET" class="row g-3">
+                            <input type="hidden" name="search_type" value="username">
+                            <div class="col-md-8">
+                                <input type="text" class="form-control" name="username" 
+                                       placeholder="Digite o username..." 
+                                       value="<?= htmlspecialchars($search_username) ?>" required>
+                            </div>
+                            <div class="col-md-4">
+                                <button type="submit" class="btn btn-primary w-100">
+                                    <i class="bi bi-search"></i> Buscar
+                                </button>
+                            </div>
+                        </form>
+                    <?php endif; ?>
+                </div>
+
+                <!-- Resultados -->
+                <div class="search-card">
+                    <h5><i class="bi bi-people"></i> Resultados da Busca 
+                        <?php if (isset($search_results)): ?>
+                            (<?= $search_results->num_rows ?>)
+                        <?php endif; ?>
+                    </h5>
+                    
+                    <?php if (!isset($search_results) || $search_results->num_rows === 0): ?>
+                        <div class="text-center py-5">
+                            <i class="bi bi-search text-muted" style="font-size: 3rem;"></i>
+                            <p class="text-muted mt-3">
+                                <?php if (!isset($search_results)): ?>
+                                    Selecione um filtro e faça uma busca para encontrar jogadores!
+                                <?php else: ?>
+                                    Nenhum jogador encontrado com os critérios selecionados.
+                                <?php endif; ?>
+                            </p>
+                        </div>
+                    <?php else: ?>
+                        <div class="row">
+                            <?php while ($player = $search_results->fetch_assoc()): ?>
+                                <?php
+                                $distance = calculateDistance($current_location, $player['latitude'], $player['longitude']);
+                                $compatibility = calculateTagCompatibility($current_user_tags, $player['preferences']);
+                                $player_tags = RPGTags::parseUserTags($player['preferences']);
+                                ?>
+                                
+                                <div class="col-md-6 col-xl-4 mb-3">
+                                    <div class="player-card h-100">
+                                        <div class="d-flex align-items-start mb-3">
+                                            <div class="me-3">
+                                                <?php if ($player['image']): ?>
+                                                    <img src="data:image/jpeg;base64,<?= $player['image'] ?>" alt="Foto" class="player-image">
+                                                <?php else: ?>
+                                                    <div class="player-image-placeholder">
+                                                        <i class="bi bi-person-fill"></i>
+                                                    </div>
+                                                <?php endif; ?>
+                                            </div>
+                                            <div class="flex-grow-1">
+                                                <h6 class="mb-1"><?= htmlspecialchars($player['name']) ?></h6>
+                                                <small class="text-muted">@<?= htmlspecialchars($player['username']) ?></small>
+                                                
+                                                <div class="mt-2">
+                                                    <?php if ($distance !== null): ?>
+                                                        <span class="distance-badge me-1">
+                                                            <i class="bi bi-geo-alt"></i> <?= round($distance, 1) ?> km de distância
                                         </div>
                                     <?php endif; ?>
                                     
