@@ -1,5 +1,5 @@
 <?php
-class Schedule {
+class Calendar {
     private $mysqli;
     private $user_id;
     
@@ -21,6 +21,7 @@ class Schedule {
         $sql = "SELECT s.id, s.title, s.description, s.start_datetime, s.end_datetime, 
                        s.max_players, s.current_players, s.status, s.location,
                        u.name as creator_name, u.username as creator_username, u.id as creator_id,
+                       c.name as chat_name, c.id as chat_id,
                        CASE 
                            WHEN s.creator_id = ? THEN 'creator'
                            WHEN EXISTS(SELECT 1 FROM session_members WHERE session_id = s.id AND user_id = ? AND status = 'accepted') THEN 'member'
@@ -28,6 +29,7 @@ class Schedule {
                        END as user_relation
                 FROM sessions s 
                 JOIN users u ON s.creator_id = u.id 
+                LEFT JOIN chats c ON s.chat_id = c.id
                 WHERE s.id IN (
                     SELECT session_id FROM session_members WHERE user_id = ? AND status = 'accepted'
                 ) OR s.creator_id = ?
@@ -61,6 +63,7 @@ class Schedule {
         $sql = "SELECT s.id, s.title, s.description, s.start_datetime, s.end_datetime, 
                        s.max_players, s.current_players, s.status, s.location,
                        u.name as creator_name, u.username as creator_username, u.id as creator_id,
+                       c.name as chat_name, c.id as chat_id,
                        CASE 
                            WHEN s.creator_id = ? THEN 'creator'
                            WHEN EXISTS(SELECT 1 FROM session_members WHERE session_id = s.id AND user_id = ? AND status = 'accepted') THEN 'member'
@@ -68,6 +71,7 @@ class Schedule {
                        END as user_relation
                 FROM sessions s 
                 JOIN users u ON s.creator_id = u.id 
+                LEFT JOIN chats c ON s.chat_id = c.id
                 WHERE (s.id IN (
                     SELECT session_id FROM session_members WHERE user_id = ? AND status = 'accepted'
                 ) OR s.creator_id = ?)
@@ -80,48 +84,6 @@ class Schedule {
         $stmt = $this->mysqli->prepare($sql);
         if ($stmt) {
             $stmt->bind_param("iiiii", $this->user_id, $this->user_id, $this->user_id, $this->user_id, $limit);
-            $stmt->execute();
-            $result = $stmt->get_result();
-            
-            while ($row = $result->fetch_assoc()) {
-                $sessions[] = $row;
-            }
-            $stmt->close();
-        }
-        
-        return $sessions;
-    }
-    
-    /**
-     * Busca sessões por período
-     */
-    public function getSessionsByPeriod($start_date, $end_date) {
-        $sessions = [];
-        
-        if (!$this->user_id) {
-            return $sessions;
-        }
-        
-        $sql = "SELECT s.id, s.title, s.description, s.start_datetime, s.end_datetime, 
-                       s.max_players, s.current_players, s.status, s.location,
-                       u.name as creator_name, u.username as creator_username, u.id as creator_id,
-                       CASE 
-                           WHEN s.creator_id = ? THEN 'creator'
-                           WHEN EXISTS(SELECT 1 FROM session_members WHERE session_id = s.id AND user_id = ? AND status = 'accepted') THEN 'member'
-                           ELSE 'none'
-                       END as user_relation
-                FROM sessions s 
-                JOIN users u ON s.creator_id = u.id 
-                WHERE (s.id IN (
-                    SELECT session_id FROM session_members WHERE user_id = ? AND status = 'accepted'
-                ) OR s.creator_id = ?)
-                AND s.start_datetime >= ?
-                AND s.start_datetime <= ?
-                ORDER BY s.start_datetime ASC";
-        
-        $stmt = $this->mysqli->prepare($sql);
-        if ($stmt) {
-            $stmt->bind_param("iiiiss", $this->user_id, $this->user_id, $this->user_id, $this->user_id, $start_date, $end_date);
             $stmt->execute();
             $result = $stmt->get_result();
             
@@ -158,7 +120,9 @@ class Schedule {
                     'location' => $session['location'],
                     'players' => $session['current_players'] . '/' . $session['max_players'],
                     'status' => $session['status'],
-                    'user_relation' => $session['user_relation']
+                    'user_relation' => $session['user_relation'],
+                    'chat_name' => $session['chat_name'],
+                    'chat_id' => $session['chat_id']
                 ]
             ];
         }
@@ -202,6 +166,9 @@ class Schedule {
             <div class="card card-body">
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h5><i class="bi bi-calendar-event"></i> Minhas Sessões Agendadas</h5>
+                    <a href="../schedule/" class="btn btn-primary btn-sm">
+                        <i class="bi bi-plus-circle"></i> Agendar Nova Sessão
+                    </a>
                 </div>
                 
                 <!-- Sessões Próximas -->
@@ -230,6 +197,9 @@ class Schedule {
                                                     <div class="mb-1"><i class="bi bi-clock"></i> <?php echo date('H:i', strtotime($session['start_datetime'])); ?> - <?php echo date('H:i', strtotime($session['end_datetime'])); ?></div>
                                                     <div class="mb-1"><i class="bi bi-people"></i> <?php echo $session['current_players']; ?>/<?php echo $session['max_players']; ?> jogadores</div>
                                                     <div class="mb-1"><i class="bi bi-person"></i> <?php echo htmlspecialchars($session['creator_name']); ?></div>
+                                                    <?php if ($session['chat_name']): ?>
+                                                        <div class="mb-1"><i class="bi bi-chat-dots"></i> <?php echo htmlspecialchars($session['chat_name']); ?></div>
+                                                    <?php endif; ?>
                                                     <?php if ($session['location']): ?>
                                                         <div><i class="bi bi-geo-alt"></i> <?php echo htmlspecialchars($session['location']); ?></div>
                                                     <?php endif; ?>
@@ -268,6 +238,7 @@ class Schedule {
                 <?php else: ?>
                     <div class="alert alert-info">
                         <i class="bi bi-info-circle"></i> Você não tem sessões agendadas para os próximos 7 dias.
+                        <a href="../schedule/" class="alert-link">Agendar uma nova sessão</a>
                     </div>
                 <?php endif; ?>
                 
@@ -381,6 +352,7 @@ class Schedule {
                                             <div class=\"col-sm-4\"><strong>Jogadores:</strong></div>
                                             <div class=\"col-sm-8\">\${props.players}</div>
                                         </div>
+                                        \${props.chat_name ? '<div class=\"row\"><div class=\"col-sm-4\"><strong>Grupo:</strong></div><div class=\"col-sm-8\">' + props.chat_name + '</div></div>' : ''}
                                         \${props.location ? '<div class=\"row\"><div class=\"col-sm-4\"><strong>Local:</strong></div><div class=\"col-sm-8\">' + props.location + '</div></div>' : ''}
                                         \${props.description ? '<div class=\"row mt-2\"><div class=\"col-12\"><strong>Descrição:</strong><br>' + props.description + '</div></div>' : ''}
                                         <div class=\"row mt-2\">
@@ -407,9 +379,6 @@ class Schedule {
                     document.body.insertAdjacentHTML('beforeend', modalContent);
                     const modal = new bootstrap.Modal(document.getElementById('eventModal'));
                     modal.show();
-                },
-                dateClick: function(info) {
-                    // Removed session creation functionality
                 },
                 eventDidMount: function(info) {
                     // Adicionar tooltip

@@ -3,7 +3,7 @@ require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../components/Location/index.php';
 require_once __DIR__ . '/../../components/FriendRequest/index.php';
 require_once __DIR__ . '/../../components/RecentMessages/index.php';
-require_once __DIR__ . '/../../components/Schedule/index.php';
+require_once __DIR__ . '/../../components/Calendar/index.php';
 
 
 session_start();
