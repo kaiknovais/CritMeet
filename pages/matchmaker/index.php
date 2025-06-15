@@ -5,16 +5,28 @@ require_once __DIR__ . '/../../components/Tags/index.php';
 
 // Verificar se o usuário está logado
 if (!isset($_SESSION['user_id'])) {
-    header('Location: ../../login.php');
+    header('Location: ../../pages/Login/');
     exit();
 }
 
 $user_id = $_SESSION['user_id'];
+$is_admin = false;
 
-class Matchmaker {
+// Verificar admin
+$query = "SELECT admin FROM users WHERE id = ?";
+$stmt = $mysqli->prepare($query);
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$result = $stmt->get_result();
+if ($result && $row = $result->fetch_assoc()) {
+    $is_admin = $row['admin'] == 1;
+}
+$stmt->close();
+
+class SimpleMatchmaker {
     private $mysqli;
     private $user_id;
-    private $max_distance = 50; // 50km limite
+    private $max_distance = 50;
     
     public function __construct($mysqli, $user_id) {
         $this->mysqli = $mysqli;
@@ -31,7 +43,6 @@ class Matchmaker {
         if ($row = $result->fetch_assoc()) {
             return $row;
         }
-        
         return null;
     }
     
@@ -45,68 +56,43 @@ class Matchmaker {
         if ($row = $result->fetch_assoc()) {
             return RPGTags::parseUserTags($row['preferences']);
         }
-        
         return [];
     }
     
-    public function getFriendsList() {
-        $friends = [];
+    public function getExcludedUsers() {
+        $excluded = [$this->user_id];
         
-        // Buscar amigos onde o usuário atual é user_id
-        $sql1 = "SELECT friend_id FROM friends WHERE user_id = ? AND status = 'accepted'";
+        // Amigos aceitos
+        $sql1 = "SELECT friend_id FROM friends WHERE user_id = ? AND status = 'accepted'
+                 UNION
+                 SELECT user_id FROM friends WHERE friend_id = ? AND status = 'accepted'";
         $stmt1 = $this->mysqli->prepare($sql1);
-        $stmt1->bind_param("i", $this->user_id);
+        $stmt1->bind_param("ii", $this->user_id, $this->user_id);
         $stmt1->execute();
         $result1 = $stmt1->get_result();
         
         while ($row = $result1->fetch_assoc()) {
-            $friends[] = $row['friend_id'];
+            $excluded[] = array_values($row)[0];
         }
         
-        // Buscar amigos onde o usuário atual é friend_id
-        $sql2 = "SELECT user_id FROM friends WHERE friend_id = ? AND status = 'accepted'";
+        // Solicitações pendentes
+        $sql2 = "SELECT friend_id FROM friends WHERE user_id = ? AND status = 'pending'
+                 UNION
+                 SELECT user_id FROM friends WHERE friend_id = ? AND status = 'pending'";
         $stmt2 = $this->mysqli->prepare($sql2);
-        $stmt2->bind_param("i", $this->user_id);
+        $stmt2->bind_param("ii", $this->user_id, $this->user_id);
         $stmt2->execute();
         $result2 = $stmt2->get_result();
         
         while ($row = $result2->fetch_assoc()) {
-            $friends[] = $row['user_id'];
+            $excluded[] = array_values($row)[0];
         }
         
-        return array_unique($friends);
-    }
-    
-    public function getPendingFriendRequests() {
-        $pending = [];
-        
-        // Solicitações enviadas
-        $sql1 = "SELECT friend_id FROM friends WHERE user_id = ? AND status = 'pending'";
-        $stmt1 = $this->mysqli->prepare($sql1);
-        $stmt1->bind_param("i", $this->user_id);
-        $stmt1->execute();
-        $result1 = $stmt1->get_result();
-        
-        while ($row = $result1->fetch_assoc()) {
-            $pending[] = $row['friend_id'];
-        }
-        
-        // Solicitações recebidas
-        $sql2 = "SELECT user_id FROM friends WHERE friend_id = ? AND status = 'pending'";
-        $stmt2 = $this->mysqli->prepare($sql2);
-        $stmt2->bind_param("i", $this->user_id);
-        $stmt2->execute();
-        $result2 = $stmt2->get_result();
-        
-        while ($row = $result2->fetch_assoc()) {
-            $pending[] = $row['user_id'];
-        }
-        
-        return array_unique($pending);
+        return array_unique($excluded);
     }
     
     public function calculateDistance($lat1, $lon1, $lat2, $lon2) {
-        $earth_radius = 6371; // Raio da Terra em km
+        $earth_radius = 6371;
         
         $lat1_rad = deg2rad($lat1);
         $lat2_rad = deg2rad($lat2);
@@ -127,12 +113,10 @@ class Matchmaker {
         }
         
         $intersection = array_intersect($user_tags, $target_tags);
-        $union = array_unique(array_merge($user_tags, $target_tags));
-        
-        return count($intersection) / count($union);
+        return count($intersection);
     }
     
-    public function findMatches($search_tags = [], $sort_by = 'distance', $min_similarity = 0) {
+    public function getNextMatch() {
         $current_location = $this->getCurrentUserLocation();
         
         if (!$current_location) {
@@ -140,48 +124,23 @@ class Matchmaker {
         }
         
         $user_preferences = $this->getCurrentUserPreferences();
-        $friends_list = $this->getFriendsList();
-        $pending_requests = $this->getPendingFriendRequests();
+        $excluded_users = $this->getExcludedUsers();
         
-        // Criar lista de usuários a excluir (amigos + solicitações pendentes + usuário atual)
-        $exclude_users = array_merge($friends_list, $pending_requests, [$this->user_id]);
-        
-        // Construir query base
         $sql = "SELECT u.id, u.username, u.name, u.gender, u.pronouns, u.preferences, u.image,
-                       ul.latitude, ul.longitude, ul.city, ul.state, ul.updated_at
+                       ul.latitude, ul.longitude, ul.city, ul.state
                 FROM users u
                 JOIN user_locations ul ON u.id = ul.user_id
-                WHERE u.id NOT IN (" . str_repeat('?,', count($exclude_users) - 1) . "?)";
-        
-        // Adicionar filtro de tags se especificado
-        if (!empty($search_tags)) {
-            $tag_conditions = [];
-            foreach ($search_tags as $tag) {
-                $tag_conditions[] = "u.preferences LIKE ?";
-            }
-            $sql .= " AND (" . implode(" OR ", $tag_conditions) . ")";
-        }
+                WHERE u.id NOT IN (" . str_repeat('?,', count($excluded_users) - 1) . "?)
+                ORDER BY RAND()
+                LIMIT 1";
         
         $stmt = $this->mysqli->prepare($sql);
-        
-        // Bind parameters
-        $types = str_repeat('i', count($exclude_users));
-        $params = $exclude_users;
-        
-        if (!empty($search_tags)) {
-            $types .= str_repeat('s', count($search_tags));
-            foreach ($search_tags as $tag) {
-                $params[] = "%{$tag}%";
-            }
-        }
-        
-        $stmt->bind_param($types, ...$params);
+        $types = str_repeat('i', count($excluded_users));
+        $stmt->bind_param($types, ...$excluded_users);
         $stmt->execute();
         $result = $stmt->get_result();
         
-        $matches = [];
-        
-        while ($row = $result->fetch_assoc()) {
+        if ($row = $result->fetch_assoc()) {
             $distance = $this->calculateDistance(
                 $current_location['latitude'],
                 $current_location['longitude'],
@@ -189,47 +148,23 @@ class Matchmaker {
                 $row['longitude']
             );
             
-            // Filtrar por distância máxima
-            if ($distance > $this->max_distance) {
-                continue;
+            if ($distance <= $this->max_distance) {
+                $target_tags = RPGTags::parseUserTags($row['preferences']);
+                $common_tags = $this->calculateTagSimilarity($user_preferences, $target_tags);
+                
+                return [
+                    'user' => $row,
+                    'distance' => round($distance, 1),
+                    'common_tags' => $common_tags,
+                    'tags' => $target_tags
+                ];
             }
-            
-            $target_tags = RPGTags::parseUserTags($row['preferences']);
-            $similarity = $this->calculateTagSimilarity($user_preferences, $target_tags);
-            
-            // Filtrar por similaridade mínima
-            if ($similarity < $min_similarity) {
-                continue;
-            }
-            
-            $matches[] = [
-                'user' => $row,
-                'distance' => round($distance, 1),
-                'similarity' => round($similarity * 100, 1),
-                'tags' => $target_tags
-            ];
         }
         
-        // Ordenar resultados
-        switch ($sort_by) {
-            case 'similarity':
-                usort($matches, function($a, $b) {
-                    return $b['similarity'] <=> $a['similarity'];
-                });
-                break;
-            case 'distance':
-            default:
-                usort($matches, function($a, $b) {
-                    return $a['distance'] <=> $b['distance'];
-                });
-                break;
-        }
-        
-        return $matches;
+        return null;
     }
     
     public function sendFriendRequest($target_user_id) {
-        // Verificar se já existe uma solicitação
         $check_sql = "SELECT id FROM friends WHERE 
                       (user_id = ? AND friend_id = ?) OR 
                       (user_id = ? AND friend_id = ?)";
@@ -239,379 +174,500 @@ class Matchmaker {
         $check_result = $check_stmt->get_result();
         
         if ($check_result->num_rows > 0) {
-            return ['success' => false, 'message' => 'Já existe uma solicitação de amizade com este usuário.'];
+            return ['success' => false, 'message' => 'Já existe uma solicitação com este usuário.'];
         }
         
-        // Criar nova solicitação
         $insert_sql = "INSERT INTO friends (user_id, friend_id, status) VALUES (?, ?, 'pending')";
         $insert_stmt = $this->mysqli->prepare($insert_sql);
         $insert_stmt->bind_param("ii", $this->user_id, $target_user_id);
         
         if ($insert_stmt->execute()) {
-            return ['success' => true, 'message' => 'Solicitação de amizade enviada!'];
+            return ['success' => true, 'message' => 'Solicitação enviada!'];
         } else {
-            return ['success' => false, 'message' => 'Erro ao enviar solicitação de amizade.'];
+            return ['success' => false, 'message' => 'Erro ao enviar solicitação.'];
         }
     }
 }
 
-// Instanciar a classe
-$matchmaker = new Matchmaker($mysqli, $user_id);
+function getProfileImageUrl($image_data) {
+    if (empty($image_data)) {
+        return '../../assets/default-avatar.png';
+    }
+    
+    if (preg_match('/^[a-zA-Z0-9\/\r\n+]*={0,2}$/', $image_data)) {
+        return 'data:image/jpeg;base64,' . $image_data;
+    } else {
+        return '../../uploads/profiles/' . $image_data;
+    }
+}
 
-// Processar ações
+$matchmaker = new SimpleMatchmaker($mysqli, $user_id);
+
+// Processar ações AJAX
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    header('Content-Type: application/json');
+    
     if (isset($_POST['action'])) {
         switch ($_POST['action']) {
+            case 'get_next_match':
+                $match = $matchmaker->getNextMatch();
+                echo json_encode($match);
+                exit();
+                
             case 'send_friend_request':
                 $target_user_id = intval($_POST['target_user_id']);
                 $response = $matchmaker->sendFriendRequest($target_user_id);
-                header('Content-Type: application/json');
                 echo json_encode($response);
                 exit();
-                break;
         }
     }
 }
 
-// Processar filtros de busca
-$search_tags = isset($_GET['tags']) ? explode(',', $_GET['tags']) : [];
-$sort_by = isset($_GET['sort']) ? $_GET['sort'] : 'distance';
-$min_similarity = isset($_GET['min_similarity']) ? floatval($_GET['min_similarity']) / 100 : 0;
-
-// Buscar matches
-$matches = $matchmaker->findMatches($search_tags, $sort_by, $min_similarity);
+// Buscar primeiro match para carregamento inicial
+$initial_match = $matchmaker->getNextMatch();
 ?>
 
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-br">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Matchmaker - Encontrar Companheiros de RPG</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
+    <title>Matchmaker - CritMeet</title>
+    <link rel="stylesheet" href="../../../assets/mobile.css" media="screen and (max-width: 600px)">
+    <link rel="stylesheet" href="../../../assets/desktop.css" media="screen and (min-width: 601px)">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
     <style>
-        .matchmaker-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 40px 0;
-            text-align: center;
+        .matchmaker-container {
+            max-width: 400px;
+            margin: 2rem auto;
+            padding: 1rem;
         }
         
         .match-card {
-            border: none;
-            border-radius: 15px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-            margin-bottom: 20px;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
             overflow: hidden;
+            margin-bottom: 1rem;
+            transition: transform 0.3s ease;
         }
         
-        .match-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        .match-card.swipe-left {
+            transform: translateX(-100%) rotate(-30deg);
+            opacity: 0;
         }
         
-        .match-avatar {
-            width: 80px;
-            height: 80px;
-            border-radius: 50%;
+        .match-card.swipe-right {
+            transform: translateX(100%) rotate(30deg);
+            opacity: 0;
+        }
+        
+        .match-image {
+            width: 100%;
+            height: 300px;
             object-fit: cover;
-            border: 3px solid #fff;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
         }
         
-        .distance-badge {
-            background: linear-gradient(45deg, #28a745, #20c997);
+        .match-info {
+            padding: 1.5rem;
+        }
+        
+        .match-name {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: #333;
+        }
+        
+        .match-details {
+            color: #666;
+            margin-bottom: 1rem;
+        }
+        
+        .common-tags {
+            background: #e3f2fd;
+            border-radius: 8px;
+            padding: 0.75rem;
+            margin-bottom: 1rem;
+        }
+        
+        .tag-badge {
+            display: inline-block;
+            background: #2196f3;
             color: white;
-            font-weight: bold;
+            padding: 0.25rem 0.5rem;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            margin: 0.1rem;
         }
         
-        .similarity-badge {
-            background: linear-gradient(45deg, #007bff, #6f42c1);
-            color: white;
-            font-weight: bold;
+        .action-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            padding: 1rem;
         }
         
-        .filters-panel {
-            background: #f8f9fa;
-            border-radius: 15px;
-            padding: 25px;
-            margin-bottom: 30px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        
-        .btn-send-request {
-            background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+        .btn-pass {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: #f44336;
             border: none;
             color: white;
-            font-weight: bold;
-            transition: all 0.3s ease;
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.2s ease;
         }
         
-        .btn-send-request:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 15px rgba(238,90,36,0.4);
+        .btn-like {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: #4caf50;
+            border: none;
             color: white;
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.2s ease;
+        }
+        
+        .btn-pass:hover, .btn-like:hover {
+            transform: scale(1.1);
         }
         
         .no-matches {
             text-align: center;
-            padding: 60px 20px;
-            color: #6c757d;
+            padding: 3rem 1rem;
+            color: #666;
         }
         
-        .no-matches i {
-            font-size: 4rem;
-            margin-bottom: 20px;
-            opacity: 0.5;
-        }
-        
-        .stats-card {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border-radius: 15px;
-            padding: 20px;
+        .loading {
             text-align: center;
-            margin-bottom: 20px;
-        }
-        
-        .loading-spinner {
-            display: none;
-            text-align: center;
-            padding: 40px;
+            padding: 2rem;
         }
     </style>
 </head>
 <body>
-    <div class="matchmaker-header">
-        <div class="container">
-            <h1><i class="bi bi-people-fill"></i> Matchmaker RPG</h1>
-            <p class="lead">Encontre companheiros de RPG próximos a você com interesses similares</p>
+<?php include 'header.php'; ?>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+
+<nav class="navbar navbar-expand-lg bg-body-tertiary" data-bs-theme="dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="../homepage/">CritMeet</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarSupportedContent">
+            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                <li class="nav-item"><a class="nav-link" href="../homepage/">Home</a></li>
+                <li class="nav-item"><a class="nav-link" href="../Profile/">Meu Perfil</a></li>
+                <li class="nav-item"><a class="nav-link" href="../rpg_info">RPG</a></li>
+                <li class="nav-item"><a class="nav-link active" href="../matchmaker/">Matchmaker</a></li>
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Mais...</a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="../settings/">Configurações</a></li>
+                        <li><a class="dropdown-item" href="../friends/">Conexões</a></li>
+                        <li><a class="dropdown-item" href="../chat/">Chat</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="../../components/Logout/">Logout</a></li>
+                        <?php if ($is_admin): ?>
+                            <li><a class="dropdown-item text-danger" href="../admin/">Lista de Usuários</a></li>
+                        <?php endif; ?>
+                    </ul>
+                </li>
+            </ul>
         </div>
     </div>
+</nav>
 
-    <div class="container mt-4">
-        <!-- Filtros de Busca -->
-        <div class="filters-panel">
-            <h5><i class="bi bi-funnel"></i> Filtros de Busca</h5>
-            <form method="GET" id="filtersForm">
-                <div class="row g-3">
-                    <div class="col-md-4">
-                        <label class="form-label">Ordenar por:</label>
-                        <select name="sort" class="form-select">
-                            <option value="distance" <?= $sort_by === 'distance' ? 'selected' : '' ?>>Distância</option>
-                            <option value="similarity" <?= $sort_by === 'similarity' ? 'selected' : '' ?>>Similaridade</option>
-                        </select>
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label">Similaridade mínima:</label>
-                        <select name="min_similarity" class="form-select">
-                            <option value="0" <?= $min_similarity == 0 ? 'selected' : '' ?>>Qualquer</option>
-                            <option value="20" <?= $min_similarity == 0.2 ? 'selected' : '' ?>>20%+</option>
-                            <option value="40" <?= $min_similarity == 0.4 ? 'selected' : '' ?>>40%+</option>
-                            <option value="60" <?= $min_similarity == 0.6 ? 'selected' : '' ?>>60%+</option>
-                            <option value="80" <?= $min_similarity == 0.8 ? 'selected' : '' ?>>80%+</option>
-                        </select>
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label">Buscar por tags:</label>
-                        <input type="text" name="tags" class="form-control" 
-                               value="<?= htmlspecialchars(implode(',', $search_tags)) ?>"
-                               placeholder="Ex: D&D 5e, Horror, Online">
-                    </div>
-                    <div class="col-12">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="bi bi-search"></i> Buscar
-                        </button>
-                        <a href="?" class="btn btn-outline-secondary">
-                            <i class="bi bi-x-circle"></i> Limpar Filtros
-                        </a>
-                    </div>
-                </div>
-            </form>
+<div class="container">
+    <div class="matchmaker-container">
+        <div class="text-center mb-3">
+            <h2><i class="bi bi-people-fill"></i> Encontrar Companheiros</h2>
+            <p class="text-muted">Descubra jogadores próximos a você</p>
         </div>
-
-        <?php if (isset($matches['error'])): ?>
-            <div class="alert alert-warning" role="alert">
-                <i class="bi bi-exclamation-triangle"></i> <?= $matches['error'] ?>
-                <hr>
-                <p class="mb-0">
-                    <a href="../Location/" class="btn btn-primary">
-                        <i class="bi bi-geo-alt"></i> Definir Localização
-                    </a>
-                </p>
-            </div>
-        <?php elseif (empty($matches)): ?>
-            <div class="no-matches">
-                <i class="bi bi-search"></i>
-                <h3>Nenhum match encontrado</h3>
-                <p>Tente ajustar os filtros ou verificar se há outros usuários na sua região.</p>
-                <a href="?" class="btn btn-primary">
-                    <i class="bi bi-arrow-clockwise"></i> Tentar Novamente
-                </a>
-            </div>
-        <?php else: ?>
-            <!-- Estatísticas -->
-            <div class="row mb-4">
-                <div class="col-md-4">
-                    <div class="stats-card">
-                        <h3><?= count($matches) ?></h3>
-                        <p class="mb-0">Matches Encontrados</p>
-                    </div>
+        
+        <div id="matchCard">
+            <?php if (isset($initial_match['error'])): ?>
+                <div class="alert alert-warning text-center">
+                    <i class="bi bi-geo-alt"></i><br>
+                    <?php echo $initial_match['error']; ?>
+                    <br><br>
+                    <a href="../settings/" class="btn btn-primary">Definir Localização</a>
                 </div>
-                <div class="col-md-4">
-                    <div class="stats-card">
-                        <h3><?= $max_distance ?> km</h3>
-                        <p class="mb-0">Raio de Busca</p>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="stats-card">
-                        <h3><?= $min_similarity * 100 ?>%</h3>
-                        <p class="mb-0">Similaridade Mínima</p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Resultados -->
-            <div class="row">
-                <?php foreach ($matches as $match): ?>
-                    <div class="col-md-6 col-lg-4">
-                        <div class="card match-card">
-                            <div class="card-body">
-                                <div class="d-flex align-items-center mb-3">
-                                    <img src="<?= $match['user']['image'] ? '../../' . $match['user']['image'] : '../../assets/default-avatar.png' ?>" 
-                                         alt="Avatar" class="match-avatar me-3">
-                                    <div>
-                                        <h5 class="card-title mb-1"><?= htmlspecialchars($match['user']['name']) ?></h5>
-                                        <p class="text-muted mb-0">@<?= htmlspecialchars($match['user']['username']) ?></p>
-                                        <small class="text-muted">
-                                            <?= htmlspecialchars($match['user']['gender']) ?>
-                                            <?php if ($match['user']['pronouns']): ?>
-                                                | <?= htmlspecialchars($match['user']['pronouns']) ?>
-                                            <?php endif; ?>
-                                        </small>
-                                    </div>
-                                </div>
-                                
-                                <div class="mb-3">
-                                    <span class="badge distance-badge me-2">
-                                        <i class="bi bi-geo-alt"></i> <?= $match['distance'] ?> km
-                                    </span>
-                                    <span class="badge similarity-badge">
-                                        <i class="bi bi-heart"></i> <?= $match['similarity'] ?>% compatível
-                                    </span>
-                                </div>
-                                
-                                <div class="mb-3">
-                                    <small class="text-muted">
-                                        <i class="bi bi-geo"></i> <?= htmlspecialchars($match['user']['city']) ?>, <?= htmlspecialchars($match['user']['state']) ?>
-                                    </small>
-                                </div>
-                                
-                                <div class="mb-3">
-                                    <h6 class="mb-2">Preferências:</h6>
-                                    <div class="tags-container">
-                                        <?php if (!empty($match['tags'])): ?>
-                                            <?php foreach (array_slice($match['tags'], 0, 3) as $tag): ?>
-                                                <span class="badge bg-secondary me-1 mb-1"><?= htmlspecialchars($tag) ?></span>
-                                            <?php endforeach; ?>
-                                            <?php if (count($match['tags']) > 3): ?>
-                                                <span class="badge bg-light text-dark">+<?= count($match['tags']) - 3 ?> mais</span>
-                                            <?php endif; ?>
-                                        <?php else: ?>
-                                            <span class="text-muted">Nenhuma preferência definida</span>
-                                        <?php endif; ?>
-                                    </div>
-                                </div>
-                                
-                                <button class="btn btn-send-request w-100" 
-                                        onclick="sendFriendRequest(<?= $match['user']['id'] ?>, this)">
-                                    <i class="bi bi-person-plus"></i> Enviar Solicitação de Amizade
-                                </button>
-                            </div>
+            <?php elseif ($initial_match): ?>
+                <div class="match-card" id="currentMatch" data-user-id="<?php echo $initial_match['user']['id']; ?>">
+                    <img src="<?php echo getProfileImageUrl($initial_match['user']['image']); ?>" 
+                         alt="Foto de perfil" class="match-image">
+                    
+                    <div class="match-info">
+                        <div class="match-name">
+                            <?php echo htmlspecialchars($initial_match['user']['name'] ?: $initial_match['user']['username']); ?>
                         </div>
+                        
+                        <div class="match-details">
+                            <div><i class="bi bi-geo-alt"></i> <?php echo $initial_match['distance']; ?>km de distância</div>
+                            <div><i class="bi bi-person"></i> <?php echo htmlspecialchars($initial_match['user']['gender']); ?>
+                                <?php if ($initial_match['user']['pronouns']): ?>
+                                    | <?php echo htmlspecialchars($initial_match['user']['pronouns']); ?>
+                                <?php endif; ?>
+                            </div>
+                            <div><i class="bi bi-geo"></i> <?php echo htmlspecialchars($initial_match['user']['city']); ?>, <?php echo htmlspecialchars($initial_match['user']['state']); ?></div>
+                        </div>
+                        
+                        <?php if (!empty($initial_match['tags'])): ?>
+                            <div class="common-tags">
+                                <small class="text-muted">
+                                    <i class="bi bi-controller"></i> 
+                                    <?php echo $initial_match['common_tags']; ?> preferências em comum:
+                                </small>
+                                <div class="mt-2">
+                                    <?php foreach (array_slice($initial_match['tags'], 0, 5) as $tag): ?>
+                                        <span class="tag-badge"><?php echo htmlspecialchars($tag); ?></span>
+                                    <?php endforeach; ?>
+                                    <?php if (count($initial_match['tags']) > 5): ?>
+                                        <span class="tag-badge bg-secondary">+<?php echo count($initial_match['tags']) - 5; ?></span>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                        <?php endif; ?>
                     </div>
-                <?php endforeach; ?>
+                </div>
+            <?php else: ?>
+                <div class="no-matches">
+                    <i class="bi bi-search" style="font-size: 3rem; opacity: 0.5;"></i>
+                    <h4>Nenhum match encontrado</h4>
+                    <p>Não há mais usuários na sua região no momento.</p>
+                    <button class="btn btn-primary" onclick="loadNextMatch()">
+                        <i class="bi bi-arrow-clockwise"></i> Tentar Novamente
+                    </button>
+                </div>
+            <?php endif; ?>
+        </div>
+        
+        <?php if ($initial_match && !isset($initial_match['error'])): ?>
+            <div class="action-buttons">
+                <button class="btn-pass" onclick="passUser()" title="Passar">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+                <button class="btn-like" onclick="likeUser()" title="Enviar Solicitação">
+                    <i class="bi bi-heart-fill"></i>
+                </button>
             </div>
         <?php endif; ?>
     </div>
+</div>
 
-    <div class="loading-spinner">
-        <div class="spinner-border text-primary" role="status">
-            <span class="visually-hidden">Carregando...</span>
-        </div>
-        <p class="mt-2">Enviando solicitação...</p>
+<div class="loading" id="loading" style="display: none;">
+    <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Carregando...</span>
     </div>
+    <p>Buscando próximo match...</p>
+</div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        function sendFriendRequest(targetUserId, button) {
-            const originalText = button.innerHTML;
-            button.innerHTML = '<i class="bi bi-hourglass-split"></i> Enviando...';
-            button.disabled = true;
-            
-            const formData = new FormData();
-            formData.append('action', 'send_friend_request');
-            formData.append('target_user_id', targetUserId);
-            
-            fetch(window.location.href, {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    button.innerHTML = '<i class="bi bi-check-circle"></i> Solicitação Enviada!';
-                    button.classList.remove('btn-send-request');
-                    button.classList.add('btn-success');
-                    
-                    // Mostrar mensagem de sucesso
-                    showAlert(data.message, 'success');
-                } else {
-                    button.innerHTML = originalText;
-                    button.disabled = false;
-                    showAlert(data.message, 'danger');
-                }
-            })
-            .catch(error => {
-                console.error('Erro:', error);
-                button.innerHTML = originalText;
-                button.disabled = false;
-                showAlert('Erro ao enviar solicitação. Tente novamente.', 'danger');
-            });
+<script>
+let isLoading = false;
+
+function showLoading() {
+    document.getElementById('loading').style.display = 'block';
+    isLoading = true;
+}
+
+function hideLoading() {
+    document.getElementById('loading').style.display = 'none';
+    isLoading = false;
+}
+
+function showAlert(message, type = 'info') {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+    alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.body.appendChild(alertDiv);
+    
+    setTimeout(() => {
+        if (alertDiv.parentNode) {
+            alertDiv.remove();
         }
+    }, 4000);
+}
+
+function loadNextMatch() {
+    if (isLoading) return;
+    
+    showLoading();
+    
+    fetch(window.location.href, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: 'action=get_next_match'
+    })
+    .then(response => response.json())
+    .then(data => {
+        hideLoading();
         
-        function showAlert(message, type) {
-            const alertDiv = document.createElement('div');
-            alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
-            alertDiv.innerHTML = `
-                ${message}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        if (data && data.error) {
+            document.getElementById('matchCard').innerHTML = `
+                <div class="alert alert-warning text-center">
+                    <i class="bi bi-geo-alt"></i><br>
+                    ${data.error}
+                    <br><br>
+                    <a href="../settings/" class="btn btn-primary">Definir Localização</a>
+                </div>
             `;
-            
-            document.body.insertBefore(alertDiv, document.body.firstChild);
-            
-            // Auto-remover após 5 segundos
-            setTimeout(() => {
-                if (alertDiv.parentNode) {
-                    alertDiv.remove();
-                }
-            }, 5000);
+        } else if (data) {
+            displayMatch(data);
+        } else {
+            document.getElementById('matchCard').innerHTML = `
+                <div class="no-matches">
+                    <i class="bi bi-search" style="font-size: 3rem; opacity: 0.5;"></i>
+                    <h4>Nenhum match encontrado</h4>
+                    <p>Não há mais usuários na sua região no momento.</p>
+                    <button class="btn btn-primary" onclick="loadNextMatch()">
+                        <i class="bi bi-arrow-clockwise"></i> Tentar Novamente
+                    </button>
+                </div>
+            `;
         }
+    })
+    .catch(error => {
+        hideLoading();
+        console.error('Erro:', error);
+        showAlert('Erro ao carregar próximo match', 'danger');
+    });
+}
+
+function displayMatch(match) {
+    const imageUrl = match.user.image ? 
+        (match.user.image.includes('data:image') ? match.user.image : `../../uploads/profiles/${match.user.image}`) :
+        '../../assets/default-avatar.png';
+    
+    let tagsHtml = '';
+    if (match.tags && match.tags.length > 0) {
+        const visibleTags = match.tags.slice(0, 5);
+        const remainingCount = match.tags.length - 5;
         
-        // Auto-submit do formulário quando mudanças são feitas
-        document.addEventListener('DOMContentLoaded', function() {
-            const form = document.getElementById('filtersForm');
-            const selects = form.querySelectorAll('select');
+        tagsHtml = `
+            <div class="common-tags">
+                <small class="text-muted">
+                    <i class="bi bi-controller"></i> 
+                    ${match.common_tags} preferências em comum:
+                </small>
+                <div class="mt-2">
+                    ${visibleTags.map(tag => `<span class="tag-badge">${tag}</span>`).join('')}
+                    ${remainingCount > 0 ? `<span class="tag-badge bg-secondary">+${remainingCount}</span>` : ''}
+                </div>
+            </div>
+        `;
+    }
+    
+    document.getElementById('matchCard').innerHTML = `
+        <div class="match-card" id="currentMatch" data-user-id="${match.user.id}">
+            <img src="${imageUrl}" alt="Foto de perfil" class="match-image">
             
-            selects.forEach(select => {
-                select.addEventListener('change', function() {
-                    form.submit();
-                });
-            });
-        });
-    </script>
+            <div class="match-info">
+                <div class="match-name">
+                    ${match.user.name || match.user.username}
+                </div>
+                
+                <div class="match-details">
+                    <div><i class="bi bi-geo-alt"></i> ${match.distance}km de distância</div>
+                    <div><i class="bi bi-person"></i> ${match.user.gender}
+                        ${match.user.pronouns ? ` | ${match.user.pronouns}` : ''}
+                    </div>
+                    <div><i class="bi bi-geo"></i> ${match.user.city}, ${match.user.state}</div>
+                </div>
+                
+                ${tagsHtml}
+            </div>
+        </div>
+        
+        <div class="action-buttons">
+            <button class="btn-pass" onclick="passUser()" title="Passar">
+                <i class="bi bi-x-lg"></i>
+            </button>
+            <button class="btn-like" onclick="likeUser()" title="Enviar Solicitação">
+                <i class="bi bi-heart-fill"></i>
+            </button>
+        </div>
+    `;
+}
+
+function passUser() {
+    if (isLoading) return;
+    
+    const matchCard = document.getElementById('currentMatch');
+    if (matchCard) {
+        matchCard.classList.add('swipe-left');
+        setTimeout(() => {
+            loadNextMatch();
+        }, 300);
+    }
+}
+
+function likeUser() {
+    if (isLoading) return;
+    
+    const matchCard = document.getElementById('currentMatch');
+    if (!matchCard) return;
+    
+    const userId = matchCard.dataset.userId;
+    
+    showLoading();
+    
+    fetch(window.location.href, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: `action=send_friend_request&target_user_id=${userId}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        hideLoading();
+        
+        if (data.success) {
+            matchCard.classList.add('swipe-right');
+            showAlert(data.message, 'success');
+            setTimeout(() => {
+                loadNextMatch();
+            }, 300);
+        } else {
+            showAlert(data.message, 'warning');
+        }
+    })
+    .catch(error => {
+        hideLoading();
+        console.error('Erro:', error);
+        showAlert('Erro ao enviar solicitação', 'danger');
+    });
+}
+
+// Keyboard shortcuts
+document.addEventListener('keydown', function(e) {
+    if (isLoading) return;
+    
+    if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+        passUser();
+    } else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+        likeUser();
+    }
+});
+</script>
+
+<?php include 'footer.php'; ?>
 </body>
 </html>

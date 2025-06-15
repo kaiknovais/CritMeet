@@ -28,8 +28,23 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if ($result->num_rows > 0) {
         $user = $result->fetch_assoc();
 
-        if ($user['password'] === $senha) { 
+        // CORREÇÃO: Verificar se a senha é hash ou texto plano
+        if (password_verify($senha, $user['password'])) {
+            // Senha com hash - método correto
             $_SESSION['user_id'] = $user['id'];
+            header("Location: ../homepage/"); 
+            exit();
+        } elseif ($user['password'] === $senha) {
+            // Senha em texto plano (para compatibilidade com dados antigos)
+            // OPCIONAL: Atualizar para hash na próxima oportunidade
+            $_SESSION['user_id'] = $user['id'];
+            
+            // Atualizar senha para hash (recomendado)
+            $hashed_password = password_hash($senha, PASSWORD_DEFAULT);
+            $update_stmt = $mysqli->prepare("UPDATE users SET password = ? WHERE id = ?");
+            $update_stmt->bind_param("si", $hashed_password, $user['id']);
+            $update_stmt->execute();
+            
             header("Location: ../homepage/"); 
             exit();
         } else {
