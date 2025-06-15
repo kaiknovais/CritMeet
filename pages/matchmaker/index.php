@@ -609,12 +609,28 @@ function displayMatch(match) {
         `;
     }
     
+    const displayName = match.user.name || match.user.username;
+    const pronounsText = match.user.pronouns ? ` | ${match.user.pronouns}` : '';
+    
     document.getElementById('matchCard').innerHTML = `
         <div class="match-card" id="currentMatch" data-user-id="${match.user.id}">
-            <!-- conteúdo do card -->
+            <img src="${imageUrl}" alt="Foto de perfil" class="match-image">
+            
+            <div class="match-info">
+                <div class="match-name">
+                    ${displayName}
+                </div>
+                
+                <div class="match-details">
+                    <div><i class="bi bi-geo-alt"></i> ${match.distance}km de distância</div>
+                    <div><i class="bi bi-person"></i> ${match.user.gender}${pronounsText}</div>
+                    <div><i class="bi bi-geo"></i> ${match.user.city}, ${match.user.state}</div>
+                </div>
+                
+                ${tagsHtml}
+            </div>
         </div>
         
-        <!-- OS BOTÕES DEVEM ESTAR AQUI DENTRO -->
         <div class="action-buttons">
             <button class="btn-pass" onclick="passUser()" title="Passar">
                 <i class="bi bi-x-lg"></i>
