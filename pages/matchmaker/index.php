@@ -36,7 +36,7 @@ if (isset($_POST['action']) && $_POST['action'] === 'update_location') {
     $location->handleLocationUpdate();
 }
 
-// Obter perfil do usuário atual - CORRIGIDO: removido 'bio' da query
+// Obter perfil do usuário atual
 $user_query = "SELECT username, name, preferences FROM users WHERE id = ?";
 $user_stmt = $mysqli->prepare($user_query);
 $user_stmt->bind_param("i", $user_id);
@@ -52,17 +52,17 @@ $search_filters = [
     'match_type' => $_GET['match_type'] ?? 'similar', // similar, specific, nearby, all
     'city' => $_GET['city'] ?? '',
     'state' => $_GET['state'] ?? '',
-    'sort' => $_GET['sort'] ?? 'compatibility' // compatibility, distance, recent
+    'sort' => $_GET['sort'] ?? 'compatibility' // compatibility, distance, name
 ];
 
-// Construir query de busca - CORRIGIDO: removido 'bio' da query
+// Construir query de busca
 $search_results = [];
-$base_query = "SELECT u.id, u.username, u.name, u.preferences, u.created_at,
+$base_query = "SELECT u.id, u.username, u.name, u.preferences,
                       ul.latitude, ul.longitude, ul.city, ul.state, ul.address, ul.updated_at as location_updated";
 
 $from_clause = " FROM users u 
                  LEFT JOIN user_locations ul ON u.id = ul.user_id 
-                 WHERE u.id != ? AND u.active = 1";
+                 WHERE u.id != ?";
 
 $params = [$user_id];
 $param_types = "i";
@@ -109,11 +109,11 @@ switch ($search_filters['sort']) {
                 )
             ) ASC";
         } else {
-            $order_clause .= "u.created_at DESC";
+            $order_clause .= "u.name ASC";
         }
         break;
-    case 'recent':
-        $order_clause .= "u.created_at DESC";
+    case 'name':
+        $order_clause .= "u.name ASC";
         break;
     default: // compatibility
         $order_clause .= "u.name ASC";
@@ -378,7 +378,7 @@ function calculateDistance($current_location, $other_lat, $other_lng) {
                                 <select class="form-select" id="sort" name="sort">
                                     <option value="compatibility" <?= $search_filters['sort'] === 'compatibility' ? 'selected' : '' ?>>Compatibilidade</option>
                                     <option value="distance" <?= $search_filters['sort'] === 'distance' ? 'selected' : '' ?>>Distância</option>
-                                    <option value="recent" <?= $search_filters['sort'] === 'recent' ? 'selected' : '' ?>>Mais Recentes</option>
+                                    <option value="name" <?= $search_filters['sort'] === 'name' ? 'selected' : '' ?>>Nome</option>
                                 </select>
                             </div>
                         </div>
@@ -492,7 +492,7 @@ function calculateDistance($current_location, $other_lat, $other_lng) {
                                             </div>
                                         <?php endif; ?>
                                         
-                                        <!-- Preferences como Bio - CORRIGIDO: usando preferences -->
+                                        <!-- Preferences como Bio -->
                                         <?php if (!empty($player['preferences'])): ?>
                                             <p class="mt-3 mb-2">
                                                 <strong>Preferências:</strong> 
@@ -525,19 +525,13 @@ function calculateDistance($current_location, $other_lat, $other_lng) {
                                         
                                         <!-- Ações -->
                                         <div class="d-flex gap-2 mt-3">
-                                            <a href="../Profile/?id=<?= $player['id'] ?>" class="btn btn-light btn-sm">
+                                            <a href="../../components/ViewProfile/?id=<?= $player['id'] ?>" class="btn btn-light btn-sm">
                                                 <i class="bi bi-person"></i> Ver Perfil
                                             </a>
                                             <a href="../chat/?user=<?= $player['id'] ?>" class="btn btn-success btn-sm">
                                                 <i class="bi bi-chat-dots"></i> Conversar
                                             </a>
                                         </div>
-                                        
-                                        <!-- Data de Cadastro -->
-                                        <small class="text-white-50 d-block mt-2">
-                                            <i class="bi bi-calendar"></i>
-                                            Membro desde <?= date('M/Y', strtotime($player['created_at'])) ?>
-                                        </small>
                                     </div>
                                 </div>
                             <?php endwhile; ?>
