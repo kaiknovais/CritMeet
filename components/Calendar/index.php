@@ -9,7 +9,7 @@ class Calendar {
     }
     
     /**
-     * Busca as sessões agendadas do usuário
+     * Busca as sessões agendadas do usuário (baseado nos chats que participa)
      */
     public function getUserSessions() {
         $sessions = [];
@@ -19,23 +19,27 @@ class Calendar {
         }
         
         $sql = "SELECT s.id, s.title, s.description, s.start_datetime, s.end_datetime, 
-                       s.max_players, s.current_players, s.status, s.location,
+                       s.status, s.location, s.chat_id,
                        u.name as creator_name, u.username as creator_username, u.id as creator_id,
+                       c.name as chat_name, c.is_group,
+                       COUNT(cm.user_id) as total_members,
                        CASE 
                            WHEN s.creator_id = ? THEN 'creator'
-                           WHEN EXISTS(SELECT 1 FROM session_members WHERE session_id = s.id AND user_id = ? AND status = 'accepted') THEN 'member'
-                           ELSE 'none'
+                           ELSE 'member'
                        END as user_relation
                 FROM sessions s 
                 JOIN users u ON s.creator_id = u.id 
-                WHERE s.id IN (
-                    SELECT session_id FROM session_members WHERE user_id = ? AND status = 'accepted'
-                ) OR s.creator_id = ?
+                JOIN chats c ON s.chat_id = c.id
+                JOIN chat_members cm ON c.id = cm.chat_id
+                WHERE s.chat_id IN (
+                    SELECT chat_id FROM chat_members WHERE user_id = ?
+                )
+                GROUP BY s.id
                 ORDER BY s.start_datetime ASC";
         
         $stmt = $this->mysqli->prepare($sql);
         if ($stmt) {
-            $stmt->bind_param("iiii", $this->user_id, $this->user_id, $this->user_id, $this->user_id);
+            $stmt->bind_param("ii", $this->user_id, $this->user_id);
             $stmt->execute();
             $result = $stmt->get_result();
             
@@ -59,27 +63,31 @@ class Calendar {
         }
         
         $sql = "SELECT s.id, s.title, s.description, s.start_datetime, s.end_datetime, 
-                       s.max_players, s.current_players, s.status, s.location,
+                       s.status, s.location, s.chat_id,
                        u.name as creator_name, u.username as creator_username, u.id as creator_id,
+                       c.name as chat_name, c.is_group,
+                       COUNT(cm.user_id) as total_members,
                        CASE 
                            WHEN s.creator_id = ? THEN 'creator'
-                           WHEN EXISTS(SELECT 1 FROM session_members WHERE session_id = s.id AND user_id = ? AND status = 'accepted') THEN 'member'
-                           ELSE 'none'
+                           ELSE 'member'
                        END as user_relation
                 FROM sessions s 
                 JOIN users u ON s.creator_id = u.id 
-                WHERE (s.id IN (
-                    SELECT session_id FROM session_members WHERE user_id = ? AND status = 'accepted'
-                ) OR s.creator_id = ?)
+                JOIN chats c ON s.chat_id = c.id
+                JOIN chat_members cm ON c.id = cm.chat_id
+                WHERE s.chat_id IN (
+                    SELECT chat_id FROM chat_members WHERE user_id = ?
+                )
                 AND s.start_datetime >= NOW()
                 AND s.start_datetime <= DATE_ADD(NOW(), INTERVAL 7 DAY)
                 AND s.status = 'active'
+                GROUP BY s.id
                 ORDER BY s.start_datetime ASC
                 LIMIT ?";
         
         $stmt = $this->mysqli->prepare($sql);
         if ($stmt) {
-            $stmt->bind_param("iiiii", $this->user_id, $this->user_id, $this->user_id, $this->user_id, $limit);
+            $stmt->bind_param("iii", $this->user_id, $this->user_id, $limit);
             $stmt->execute();
             $result = $stmt->get_result();
             
@@ -90,6 +98,41 @@ class Calendar {
         }
         
         return $sessions;
+    }
+    
+    /**
+     * Busca os chats de grupo do usuário para o dropdown
+     */
+    public function getUserGroupChats() {
+        $chats = [];
+        
+        if (!$this->user_id) {
+            return $chats;
+        }
+        
+        $sql = "SELECT c.id, c.name, COUNT(cm.user_id) as member_count
+                FROM chats c
+                JOIN chat_members cm ON c.id = cm.chat_id
+                WHERE c.is_group = 1 
+                AND c.id IN (
+                    SELECT chat_id FROM chat_members WHERE user_id = ?
+                )
+                GROUP BY c.id, c.name
+                ORDER BY c.name ASC";
+        
+        $stmt = $this->mysqli->prepare($sql);
+        if ($stmt) {
+            $stmt->bind_param("i", $this->user_id);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            
+            while ($row = $result->fetch_assoc()) {
+                $chats[] = $row;
+            }
+            $stmt->close();
+        }
+        
+        return $chats;
     }
     
     /**
@@ -114,7 +157,8 @@ class Calendar {
                     'description' => $session['description'],
                     'creator' => $session['creator_name'],
                     'location' => $session['location'],
-                    'players' => $session['current_players'] . '/' . $session['max_players'],
+                    'chat_name' => $session['chat_name'],
+                    'total_members' => $session['total_members'],
                     'status' => $session['status'],
                     'user_relation' => $session['user_relation']
                 ]
@@ -127,26 +171,12 @@ class Calendar {
     /**
      * Define cores para diferentes status de sessão e relação do usuário
      */
-    private function getSessionColor($status, $user_relation = 'none') {
+    private function getSessionColor($status, $user_relation = 'member') {
         // Cores baseadas na relação do usuário
         if ($user_relation === 'creator') {
             return ['bg' => '#ffc107', 'border' => '#ffb300', 'text' => '#000'];
-        } elseif ($user_relation === 'member') {
+        } else {
             return ['bg' => '#28a745', 'border' => '#20c997', 'text' => '#fff'];
-        }
-        
-        // Cores baseadas no status
-        switch ($status) {
-            case 'active':
-                return ['bg' => '#007bff', 'border' => '#0056b3', 'text' => '#fff'];
-            case 'full':
-                return ['bg' => '#17a2b8', 'border' => '#138496', 'text' => '#fff'];
-            case 'cancelled':
-                return ['bg' => '#dc3545', 'border' => '#c82333', 'text' => '#fff'];
-            case 'completed':
-                return ['bg' => '#6c757d', 'border' => '#545b62', 'text' => '#fff'];
-            default:
-                return ['bg' => '#007bff', 'border' => '#0056b3', 'text' => '#fff'];
         }
     }
     
@@ -189,7 +219,8 @@ class Calendar {
                                                 <div class="small mb-2">
                                                     <div class="mb-1"><i class="bi bi-calendar3"></i> <?php echo date('d/m/Y', strtotime($session['start_datetime'])); ?></div>
                                                     <div class="mb-1"><i class="bi bi-clock"></i> <?php echo date('H:i', strtotime($session['start_datetime'])); ?> - <?php echo date('H:i', strtotime($session['end_datetime'])); ?></div>
-                                                    <div class="mb-1"><i class="bi bi-people"></i> <?php echo $session['current_players']; ?>/<?php echo $session['max_players']; ?> jogadores</div>
+                                                    <div class="mb-1"><i class="bi bi-people"></i> <?php echo $session['total_members']; ?> membros do grupo</div>
+                                                    <div class="mb-1"><i class="bi bi-chat-dots"></i> <?php echo htmlspecialchars($session['chat_name']); ?></div>
                                                     <div class="mb-1"><i class="bi bi-person"></i> <?php echo htmlspecialchars($session['creator_name']); ?></div>
                                                     <?php if ($session['location']): ?>
                                                         <div><i class="bi bi-geo-alt"></i> <?php echo htmlspecialchars($session['location']); ?></div>
@@ -201,9 +232,9 @@ class Calendar {
                                                         <span class="badge bg-warning text-dark">
                                                             <i class="bi bi-star-fill"></i> Criador
                                                         </span>
-                                                    <?php elseif ($session['user_relation'] === 'member'): ?>
+                                                    <?php else: ?>
                                                         <span class="badge bg-success">
-                                                            <i class="bi bi-check-circle"></i> Participando
+                                                            <i class="bi bi-check-circle"></i> Membro do Grupo
                                                         </span>
                                                     <?php endif; ?>
                                                 </div>
@@ -239,7 +270,7 @@ class Calendar {
                         <h6><i class="bi bi-calendar3"></i> Calendário de Sessões</h6>
                         <div class="d-flex gap-2">
                             <span class="badge bg-warning text-dark"><i class="bi bi-star-fill"></i> Criadas por mim</span>
-                            <span class="badge bg-success"><i class="bi bi-check-circle"></i> Participando</span>
+                            <span class="badge bg-success"><i class="bi bi-check-circle"></i> Membro do Grupo</span>
                         </div>
                     </div>
                     <div id="calendar" style="min-height: 400px;"></div>
@@ -314,7 +345,7 @@ class Calendar {
                     let relationIcon = '';
                     if (props.user_relation === 'creator') {
                         relationIcon = '<i class=\"bi bi-star-fill text-warning\"></i> ';
-                    } else if (props.user_relation === 'member') {
+                    } else {
                         relationIcon = '<i class=\"bi bi-check-circle text-success\"></i> ';
                     }
                     
@@ -340,8 +371,8 @@ class Calendar {
                                             <div class=\"col-sm-8\">\${props.creator}</div>
                                         </div>
                                         <div class=\"row\">
-                                            <div class=\"col-sm-4\"><strong>Jogadores:</strong></div>
-                                            <div class=\"col-sm-8\">\${props.players}</div>
+                                            <div class=\"col-sm-4\"><strong>Grupo:</strong></div>
+                                            <div class=\"col-sm-8\">\${props.chat_name} (\${props.total_members} membros)</div>
                                         </div>
                                         \${props.location ? '<div class=\"row\"><div class=\"col-sm-4\"><strong>Local:</strong></div><div class=\"col-sm-8\">' + props.location + '</div></div>' : ''}
                                         \${props.description ? '<div class=\"row mt-2\"><div class=\"col-12\"><strong>Descrição:</strong><br>' + props.description + '</div></div>' : ''}
@@ -378,13 +409,13 @@ class Calendar {
                     let relationText = '';
                     if (props.user_relation === 'creator') {
                         relationText = ' (Criador)';
-                    } else if (props.user_relation === 'member') {
-                        relationText = ' (Participando)';
+                    } else {
+                        relationText = ' (Membro)';
                     }
                     
                     info.el.setAttribute('data-bs-toggle', 'tooltip');
                     info.el.setAttribute('data-bs-placement', 'top');
-                    info.el.setAttribute('title', `\${event.title}\${relationText} - \${props.players} jogadores`);
+                    info.el.setAttribute('title', `\${event.title}\${relationText} - \${props.chat_name}`);
                     
                     new bootstrap.Tooltip(info.el);
                 }
@@ -401,10 +432,8 @@ class Calendar {
         switch ($user_relation) {
             case 'creator':
                 return 'border-warning border-2';
-            case 'member':
-                return 'border-success border-2';
             default:
-                return 'border-primary border-2';
+                return 'border-success border-2';
         }
     }
     
@@ -415,8 +444,6 @@ class Calendar {
         switch ($status) {
             case 'active':
                 return 'primary';
-            case 'full':
-                return 'info';
             case 'cancelled':
                 return 'danger';
             case 'completed':
@@ -433,8 +460,6 @@ class Calendar {
         switch ($status) {
             case 'active':
                 return 'Ativa';
-            case 'full':
-                return 'Lotada';
             case 'cancelled':
                 return 'Cancelada';
             case 'completed':
@@ -454,15 +479,15 @@ class Calendar {
         
         $sql = "SELECT COUNT(*) as count 
                 FROM sessions s 
-                WHERE (s.id IN (
-                    SELECT session_id FROM session_members WHERE user_id = ? AND status = 'accepted'
-                ) OR s.creator_id = ?)
+                WHERE s.chat_id IN (
+                    SELECT chat_id FROM chat_members WHERE user_id = ?
+                )
                 AND s.start_datetime >= NOW()
                 AND s.status = 'active'";
         
         $stmt = $this->mysqli->prepare($sql);
         if ($stmt) {
-            $stmt->bind_param("ii", $this->user_id, $this->user_id);
+            $stmt->bind_param("i", $this->user_id);
             $stmt->execute();
             $result = $stmt->get_result();
             $row = $result->fetch_assoc();
@@ -485,7 +510,7 @@ class Calendar {
                 FROM sessions s 
                 WHERE s.creator_id = ?
                 AND s.start_datetime >= NOW()
-                AND s.status IN ('active', 'full')";
+                AND s.status IN ('active', 'completed')";
         
         $stmt = $this->mysqli->prepare($sql);
         if ($stmt) {
