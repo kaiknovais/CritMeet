@@ -4,7 +4,6 @@ require_once __DIR__ . '/../../components/Tags/index.php';
 session_start();
 
 $error_message = '';
-$success_message = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
@@ -57,11 +56,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $insert_stmt->bind_param("sssssss", $username, $email, $hashed_password, $name, $gender, $pronouns, $preferences);
         
         if ($insert_stmt->execute()) {
-            $success_message = "Conta criada com sucesso! Você pode fazer login agora.";
-            
-            // Limpar campos após sucesso
-            $username = $email = $name = $gender = $pronouns = $preferences = '';
-            
+            // Definir mensagem de sucesso na sessão e redirecionar para login
+            $_SESSION['registration_success'] = "Conta criada com sucesso! Você pode fazer login agora.";
+            header("Location: ../login/");
+            exit();
         } else {
             throw new Exception('Erro ao criar a conta. Tente novamente.');
         }
@@ -187,13 +185,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <h2 class="mb-2">Criar Nova Conta</h2>
                     <p class="text-muted mb-0">Cadastro básico - você pode completar seu perfil depois</p>
                 </div>
-
-                <?php if (!empty($success_message)): ?>
-                    <div class="alert alert-success d-flex align-items-center">
-                        <i class="bi bi-check-circle-fill me-2"></i>
-                        <div><?php echo $success_message; ?></div>
-                    </div>
-                <?php endif; ?>
                 
                 <?php if (!empty($error_message)): ?>
                     <div class="alert alert-danger d-flex align-items-center">

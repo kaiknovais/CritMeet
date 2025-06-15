@@ -3,6 +3,13 @@ require_once __DIR__ . '/../../config.php';
 
 session_start();
 
+// Capturar mensagem de sucesso do registro
+$success_message = '';
+if (isset($_SESSION['registration_success'])) {
+    $success_message = $_SESSION['registration_success'];
+    unset($_SESSION['registration_success']); // Remover da sessão após capturar
+}
+
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $login = $_POST['email'];
     $senha = $_POST['senha'];
@@ -50,6 +57,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     <div class="container">
         <h1>CritMeet</h1><br>
+        
+        <?php if (!empty($success_message)): ?>
+            <div class="alert alert-success d-flex align-items-center">
+                <i class="bi bi-check-circle-fill me-2"></i>
+                <div><?php echo $success_message; ?></div>
+            </div>
+        <?php endif; ?>
+        
         <form method="POST" action="">
             <input type="text" name="email" placeholder="Email ou Username" required /><br>
             <input type="password" name="senha" placeholder="Senha" required /><br>
