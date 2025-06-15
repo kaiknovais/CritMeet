@@ -23,6 +23,26 @@ if ($result && $row = $result->fetch_assoc()) {
 }
 $stmt->close();
 
+// Buscar chats em grupo do usuário (apenas grupos onde é membro)
+$user_chats = [];
+$chat_query = "SELECT c.id, c.name, c.image, COUNT(cm.user_id) as member_count 
+               FROM chats c 
+               INNER JOIN chat_members cm ON c.id = cm.chat_id 
+               WHERE c.is_group = 1 
+               AND c.id IN (
+                   SELECT chat_id FROM chat_members WHERE user_id = ?
+               )
+               GROUP BY c.id, c.name, c.image
+               ORDER BY c.name";
+$stmt = $mysqli->prepare($chat_query);
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$result = $stmt->get_result();
+while ($row = $result->fetch_assoc()) {
+    $user_chats[] = $row;
+}
+$stmt->close();
+
 // Inicializar componente Calendar
 $calendar = new Calendar($mysqli, $user_id);
 
@@ -40,50 +60,86 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_session'])) {
     $chat_id = intval($_POST['chat_id'] ?? 0);
     
     // Validações
-    if (empty($title) || empty($start_datetime) || empty($end_datetime) || $max_players < 1) {
-        $error_message = 'Por favor, preencha todos os campos obrigatórios.';
+    if (empty($title) || empty($start_datetime) || empty($end_datetime) || $max_players < 1 || $chat_id == 0) {
+        $error_message = 'Por favor, preencha todos os campos obrigatórios, incluindo o grupo.';
     } elseif (strtotime($start_datetime) <= time()) {
         $error_message = 'A data de início deve ser no futuro.';
     } elseif (strtotime($end_datetime) <= strtotime($start_datetime)) {
         $error_message = 'A data de fim deve ser posterior à data de início.';
     } else {
-        // Inserir nova sessão
-        $sql = "INSERT INTO sessions (title, description, start_datetime, end_datetime, max_players, current_players, location, creator_id, status, created_at) 
-                VALUES (?, ?, ?, ?, ?, 1, ?, ?, 'active', NOW())";
+        // Verificar se o usuário é membro do chat/grupo selecionado
+        $member_check = "SELECT id FROM chat_members WHERE chat_id = ? AND user_id = ?";
+        $stmt = $mysqli->prepare($member_check);
+        $stmt->bind_param("ii", $chat_id, $user_id);
+        $stmt->execute();
+        $result = $stmt->get_result();
         
-        $stmt = $mysqli->prepare($sql);
-        if ($stmt) {
-            $stmt->bind_param("ssssiisi", $title, $description, $start_datetime, $end_datetime, $max_players, $location, $user_id);
+        if ($result->num_rows == 0) {
+            $error_message = 'Você não tem permissão para criar sessões neste grupo.';
+        } else {
+            $stmt->close();
             
-            if ($stmt->execute()) {
-                $session_id = $mysqli->insert_id;
+            // Iniciar transação
+            $mysqli->begin_transaction();
+            
+            try {
+                // Inserir nova sessão (sem current_players, será calculado via query)
+                $sql = "INSERT INTO sessions (title, description, start_datetime, end_datetime, max_players, location, creator_id, chat_id, status) 
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active')";
                 
-                // Adicionar o criador como membro da sessão
-                $member_sql = "INSERT INTO session_members (session_id, user_id, status, joined_at) VALUES (?, ?, 'accepted', NOW())";
-                $member_stmt = $mysqli->prepare($member_sql);
-                if ($member_stmt) {
-                    $member_stmt->bind_param("ii", $session_id, $user_id);
-                    $member_stmt->execute();
-                    $member_stmt->close();
+                $stmt = $mysqli->prepare($sql);
+                $stmt->bind_param("ssssisii", $title, $description, $start_datetime, $end_datetime, $max_players, $location, $user_id, $chat_id);
+                
+                if (!$stmt->execute()) {
+                    throw new Exception('Erro ao criar sessão');
                 }
                 
-                $success_message = 'Sessão criada com sucesso!';
+                $session_id = $mysqli->insert_id;
+                $stmt->close();
+                
+                // Buscar todos os membros do chat/grupo
+                $members_query = "SELECT user_id FROM chat_members WHERE chat_id = ?";
+                $stmt = $mysqli->prepare($members_query);
+                $stmt->bind_param("i", $chat_id);
+                $stmt->execute();
+                $members_result = $stmt->get_result();
+                
+                // Adicionar todos os membros do grupo como membros da sessão
+                $member_sql = "INSERT INTO session_members (session_id, user_id, status, joined_at) VALUES (?, ?, ?, NOW())";
+                $member_stmt = $mysqli->prepare($member_sql);
+                
+                while ($member = $members_result->fetch_assoc()) {
+                    $member_user_id = $member['user_id'];
+                    // Criador automaticamente aceita, outros ficam como 'pending'
+                    $status = ($member_user_id == $user_id) ? 'accepted' : 'pending';
+                    
+                    $member_stmt->bind_param("iis", $session_id, $member_user_id, $status);
+                    if (!$member_stmt->execute()) {
+                        throw new Exception('Erro ao adicionar membros à sessão');
+                    }
+                }
+                
+                $stmt->close();
+                $member_stmt->close();
+                
+                // Confirmar transação
+                $mysqli->commit();
+                
+                $success_message = 'Sessão criada com sucesso! Todos os membros do grupo foram convidados.';
                 
                 // Limpar campos do formulário
                 $title = $description = $start_datetime = $end_datetime = $location = '';
                 $max_players = 0;
-            } else {
-                $error_message = 'Erro ao criar sessão. Tente novamente.';
+                $chat_id = 0;
+                
+            } catch (Exception $e) {
+                // Reverter transação em caso de erro
+                $mysqli->rollback();
+                $error_message = 'Erro ao criar sessão: ' . $e->getMessage();
             }
-            $stmt->close();
-        } else {
-            $error_message = 'Erro interno. Tente novamente.';
         }
     }
 }
-
-// Buscar chats do usuário para dropdown (removido - não usado)
-$user_chats = [];
 ?>
 
 <!DOCTYPE html>
@@ -96,7 +152,6 @@ $user_chats = [];
     <link rel="stylesheet" href="../../../assets/desktop.css" media="screen and (min-width: 601px)">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
     
     <style>
         .datetime-input {
@@ -122,6 +177,24 @@ $user_chats = [];
             border-radius: 10px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
             padding: 20px;
+        }
+        
+        .chat-option {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .chat-avatar {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: #6c757d;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 12px;
         }
     </style>
 </head>
@@ -163,13 +236,21 @@ $user_chats = [];
         <div class="row">
             <div class="col-12">
                 <div class="d-flex justify-content-between align-items-center mb-4">
-                    <h2><i class="bi bi-calendar-plus"></i> Agendar Nova Sessão</h2>
+                    <h2><i class="bi bi-calendar-plus"></i> Agendar Nova Sessão em Grupo</h2>
                     <a href="../homepage/" class="btn btn-outline-secondary">
                         <i class="bi bi-arrow-left"></i> Voltar
                     </a>
                 </div>
             </div>
         </div>
+
+        <?php if (empty($user_chats)): ?>
+            <div class="alert alert-warning" role="alert">
+                <i class="bi bi-exclamation-triangle"></i> 
+                <strong>Você precisa estar em pelo menos um grupo para criar sessões.</strong>
+                <br>Vá para <a href="../chat/" class="alert-link">Chat</a> e crie ou junte-se a um grupo primeiro.
+            </div>
+        <?php endif; ?>
 
         <?php if ($success_message): ?>
             <div class="alert alert-success alert-dismissible fade show" role="alert">
@@ -190,10 +271,25 @@ $user_chats = [];
             <div class="col-lg-6">
                 <div class="card">
                     <div class="card-header">
-                        <h5><i class="bi bi-plus-circle"></i> Detalhes da Sessão</h5>
+                        <h5><i class="bi bi-plus-circle"></i> Detalhes da Sessão em Grupo</h5>
                     </div>
                     <div class="card-body">
-                        <form method="POST">
+                        <form method="POST" <?php echo empty($user_chats) ? 'style="display:none;"' : ''; ?>>
+                            <!-- Seleção do Grupo -->
+                            <div class="form-floating mb-3">
+                                <select class="form-select" id="chat_id" name="chat_id" required>
+                                    <option value="">Selecione um grupo...</option>
+                                    <?php foreach ($user_chats as $chat): ?>
+                                        <option value="<?php echo $chat['id']; ?>" 
+                                                <?php echo (isset($chat_id) && $chat_id == $chat['id']) ? 'selected' : ''; ?>>
+                                            <?php echo htmlspecialchars($chat['name']); ?> 
+                                            (<?php echo $chat['member_count']; ?> membros)
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <label for="chat_id">Grupo para a Sessão *</label>
+                            </div>
+
                             <div class="form-floating mb-3">
                                 <input type="text" class="form-control" id="title" name="title" 
                                        placeholder="Título da Sessão" required maxlength="100"
@@ -245,15 +341,14 @@ $user_chats = [];
                                 </div>
                             </div>
 
-                            <div class="form-floating mb-4">
-                                <textarea class="form-control" id="additional_notes" name="additional_notes" 
-                                          placeholder="Observações adicionais" style="height: 80px" maxlength="300"><?php echo htmlspecialchars($additional_notes ?? ''); ?></textarea>
-                                <label for="additional_notes">Observações Adicionais</label>
+                            <div class="alert alert-info">
+                                <i class="bi bi-info-circle"></i>
+                                <strong>Importante:</strong> Todos os membros do grupo selecionado serão automaticamente convidados para esta sessão.
                             </div>
 
                             <div class="d-grid gap-2">
                                 <button type="submit" name="create_session" class="btn btn-primary btn-lg">
-                                    <i class="bi bi-calendar-check"></i> Criar Sessão
+                                    <i class="bi bi-calendar-check"></i> Criar Sessão em Grupo
                                 </button>
                                 <button type="reset" class="btn btn-outline-secondary">
                                     <i class="bi bi-arrow-clockwise"></i> Limpar Formulário
@@ -281,6 +376,9 @@ $user_chats = [];
                                 <div><i class="bi bi-people"></i> <span id="previewPlayers">-</span> jogadores</div>
                                 <div><i class="bi bi-geo-alt"></i> <span id="previewLocation">-</span></div>
                             </div>
+                        </div>
+                        <div class="mt-2">
+                            <div><i class="bi bi-chat-dots"></i> <span id="previewGroup">Grupo: -</span></div>
                         </div>
                     </div>
                 </div>
@@ -329,6 +427,7 @@ $user_chats = [];
             const form = document.querySelector('form');
             const preview = document.getElementById('sessionPreview');
             const fields = {
+                chat_id: document.getElementById('chat_id'),
                 title: document.getElementById('title'),
                 description: document.getElementById('description'),
                 start_datetime: document.getElementById('start_datetime'),
@@ -338,6 +437,7 @@ $user_chats = [];
             };
             
             function updatePreview() {
+                const chatId = fields.chat_id.value;
                 const title = fields.title.value.trim();
                 const description = fields.description.value.trim();
                 const startDate = fields.start_datetime.value;
@@ -345,7 +445,7 @@ $user_chats = [];
                 const maxPlayers = fields.max_players.value;
                 const location = fields.location.value.trim();
                 
-                if (title || description || startDate || endDate || maxPlayers || location) {
+                if (title || description || startDate || endDate || maxPlayers || location || chatId) {
                     preview.style.display = 'block';
                     
                     document.getElementById('previewTitle').textContent = title || 'Título da Sessão';
@@ -372,6 +472,11 @@ $user_chats = [];
                     
                     document.getElementById('previewPlayers').textContent = maxPlayers || '0';
                     document.getElementById('previewLocation').textContent = location || 'Local não informado';
+                    
+                    // Mostrar nome do grupo selecionado
+                    const selectedChat = fields.chat_id.options[fields.chat_id.selectedIndex];
+                    document.getElementById('previewGroup').textContent = 
+                        chatId ? 'Grupo: ' + selectedChat.text : 'Grupo: Nenhum selecionado';
                 } else {
                     preview.style.display = 'none';
                 }
