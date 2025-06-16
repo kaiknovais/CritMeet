@@ -389,7 +389,7 @@ function getFriendshipStatus($mysqli, $user_id, $friend_id) {
 <body>
     <?php include 'header.php'; ?>
     
-    <!-- Navbar -->
+    <!-- Navbar corrigida para ficar igual à homepage -->
     <nav class="navbar navbar-expand-lg bg-body-tertiary" data-bs-theme="dark">
         <div class="container-fluid">
             <a class="navbar-brand" href="../homepage/">
@@ -404,14 +404,8 @@ function getFriendshipStatus($mysqli, $user_id, $friend_id) {
                     <li class="nav-item"><a class="nav-link" href="../Profile/"><i class="bi bi-person"></i> Meu Perfil</a></li>
                     <li class="nav-item"><a class="nav-link" href="../rpg_info"><i class="bi bi-dice-5"></i> RPG</a></li>
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle active" href="#" data-bs-toggle="dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
                             <i class="bi bi-three-dots"></i> Mais...
-                            <?php
-                            $pending_count = $result_pending->num_rows;
-                            if ($pending_count > 0) {
-                                echo '<span class="notification-badge"><span class="badge">' . $pending_count . '</span></span>';
-                            }
-                            ?>
                         </a>
                         <ul class="dropdown-menu">
                             <li><a class="dropdown-item" href="../settings/"><i class="bi bi-gear"></i> Configurações</a></li>
