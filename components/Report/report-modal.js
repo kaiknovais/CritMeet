@@ -68,8 +68,17 @@ class ReportModal {
                                 </div>
                             </div>
                         </form>
+                        <!-- Debug info (removível em produção) -->
+                        <div id="debugInfo" style="display: none;" class="alert alert-secondary small">
+                            <strong>Debug Info:</strong>
+                            <div>API URL: <span id="debugApiUrl"></span></div>
+                            <div>Current Path: <span id="debugCurrentPath"></span></div>
+                        </div>
                     </div>
                     <div class="modal-footer" style="background-color: #f8f9fa; border-top: 1px solid #dee2e6;">
+                        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="document.getElementById('debugInfo').style.display = document.getElementById('debugInfo').style.display === 'none' ? 'block' : 'none'">
+                            Debug
+                        </button>
                         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
                             <i class="bi bi-x-circle me-1"></i> Cancelar
                         </button>
@@ -193,6 +202,11 @@ class ReportModal {
             modalLabel.innerHTML = '<i class="bi bi-flag-fill me-2"></i> Denunciar Usuário';
         }
         
+        // Atualizar debug info
+        const apiUrl = this.getApiUrl();
+        document.getElementById('debugApiUrl').textContent = apiUrl;
+        document.getElementById('debugCurrentPath').textContent = window.location.pathname;
+        
         this.clearForm();
         this.modal.show();
         
@@ -288,24 +302,30 @@ class ReportModal {
     getApiUrl() {
         // Versão mais robusta para detectar o caminho correto
         const currentPath = window.location.pathname;
-        const currentDir = window.location.href;
+        const baseUrl = window.location.origin;
         
-        // Tentar diferentes caminhos baseados na estrutura
-        const possiblePaths = [
-            'components/Report/api.php',
-            '../components/Report/api.php',
-            '../../components/Report/api.php',
-            '../../../components/Report/api.php'
-        ];
+        console.log('Current pathname:', currentPath);
+        console.log('Base URL:', baseUrl);
         
-        // Se estivermos em uma página específica, ajustar o caminho
-        if (currentPath.includes('/pages/')) {
-            return '../../components/Report/api.php';
+        // Detectar se estamos em uma página específica e ajustar o caminho
+        let apiPath;
+        
+        if (currentPath.includes('/pages/viewprofile/')) {
+            // Estamos na página viewprofile
+            apiPath = '../../components/Report/api.php';
+        } else if (currentPath.includes('/pages/')) {
+            // Estamos em outra página dentro de /pages/
+            apiPath = '../../components/Report/api.php';
         } else if (currentPath.includes('/components/')) {
-            return '../Report/api.php';
+            // Estamos dentro de components
+            apiPath = '../Report/api.php';
         } else {
-            return 'components/Report/api.php';
+            // Estamos na raiz ou em outro local
+            apiPath = 'components/Report/api.php';
         }
+        
+        console.log('Calculated API path:', apiPath);
+        return apiPath;
     }
 
     async submitReport() {
@@ -344,6 +364,7 @@ class ReportModal {
         try {
             const apiUrl = this.getApiUrl();
             console.log('Enviando denúncia para:', apiUrl);
+            console.log('Dados:', formData);
             
             const response = await fetch(apiUrl, {
                 method: 'POST',
@@ -356,14 +377,25 @@ class ReportModal {
                 credentials: 'same-origin'
             });
 
+            console.log('Response status:', response.status);
+            console.log('Response headers:', response.headers);
+            
+            const responseText = await response.text();
+            console.log('Response text (first 500 chars):', responseText.substring(0, 500));
+            
+            // Verificar se a resposta é HTML (indicando erro do servidor)
+            if (responseText.trim().startsWith('<!DOCTYPE') || responseText.trim().startsWith('<html')) {
+                console.error('Servidor retornou HTML em vez de JSON');
+                throw new Error('Servidor retornou página de erro. Verifique se o arquivo API existe e está acessível.');
+            }
+            
             let result;
             try {
-                const responseText = await response.text();
-                console.log('Resposta do servidor:', responseText);
                 result = JSON.parse(responseText);
             } catch (parseError) {
                 console.error('Erro ao parsear JSON:', parseError);
-                throw new Error('Resposta inválida do servidor');
+                console.error('Resposta completa:', responseText);
+                throw new Error(`Resposta inválida do servidor. Resposta recebida: ${responseText.substring(0, 100)}...`);
             }
 
             if (response.ok && result.success) {
@@ -396,7 +428,7 @@ class ReportModal {
                     errorMessage = 'Sessão expirada. Por favor, faça login novamente';
                     alertType = 'warning';
                 } else if (response.status === 404) {
-                    errorMessage = 'Usuário não encontrado';
+                    errorMessage = 'Usuário não encontrado ou API não acessível';
                     alertType = 'warning';
                 } else if (response.status >= 500) {
                     errorMessage = 'Erro interno do servidor. Tente novamente em alguns minutos';
@@ -420,7 +452,7 @@ class ReportModal {
                 }, delay);
                 return;
             } else {
-                this.showAlert('Erro de conexão persistente. Verifique sua internet e tente novamente mais tarde.', 'danger');
+                this.showAlert(`Erro persistente: ${error.message}`, 'danger');
             }
         } finally {
             if (this.retryCount >= this.maxRetries || !this.isSubmitting) {
