@@ -67,14 +67,6 @@ class ReportModal {
                                     <small id="charCount" class="fw-bold">0/1000</small>
                                 </div>
                             </div>
-                            <div class="mb-3">
-                                <div class="form-check p-3" style="background-color: #fff; border: 1px solid #dee2e6; border-radius: 8px;">
-                                    <input class="form-check-input" type="checkbox" id="confirmReport" required style="transform: scale(1.1);">
-                                    <label class="form-check-label ms-2 text-dark" for="confirmReport">
-                                        Confirmo que li as informações acima e que esta denúncia é verdadeira
-                                    </label>
-                                </div>
-                            </div>
                         </form>
                     </div>
                     <div class="modal-footer" style="background-color: #f8f9fa; border-top: 1px solid #dee2e6;">
