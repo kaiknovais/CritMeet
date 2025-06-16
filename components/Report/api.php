@@ -1,7 +1,12 @@
 <?php
-// components/Report/api.php - API para processar denúncias
 require_once __DIR__ . '/../../config.php';
 session_start();
+
+// Configurar cabeçalhos CORS e JSON
+header('Content-Type: application/json');
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: POST');
+header('Access-Control-Allow-Headers: Content-Type, X-Requested-With');
 
 // Apenas requisições AJAX são permitidas
 if (!isset($_SERVER['HTTP_X_REQUESTED_WITH']) || 
@@ -18,8 +23,6 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
-header('Content-Type: application/json');
-
 // Verificar se usuário está logado
 if (!isset($_SESSION['user_id'])) {
     http_response_code(401);
@@ -31,6 +34,14 @@ $reporter_id = $_SESSION['user_id'];
 
 // Validar dados recebidos
 $input = json_decode(file_get_contents('php://input'), true);
+
+// Verificar se JSON foi decodificado corretamente
+if (json_last_error() !== JSON_ERROR_NONE) {
+    http_response_code(400);
+    echo json_encode(['success' => false, 'message' => 'JSON inválido']);
+    exit;
+}
+
 if (!isset($input['reported_id']) || !isset($input['reason'])) {
     http_response_code(400);
     echo json_encode(['success' => false, 'message' => 'Dados incompletos']);
@@ -69,10 +80,18 @@ if ($reporter_id == $reported_id) {
 // Verificar se o usuário denunciado existe
 $check_user = "SELECT id FROM users WHERE id = ?";
 $stmt = $mysqli->prepare($check_user);
+if (!$stmt) {
+    http_response_code(500);
+    echo json_encode(['success' => false, 'message' => 'Erro interno do servidor']);
+    exit;
+}
+
 $stmt->bind_param("i", $reported_id);
 $stmt->execute();
 $result = $stmt->get_result();
+
 if ($result->num_rows == 0) {
+    $stmt->close();
     http_response_code(404);
     echo json_encode(['success' => false, 'message' => 'Usuário não encontrado']);
     exit;
@@ -82,10 +101,18 @@ $stmt->close();
 // Verificar se já existe uma denúncia pendente do mesmo usuário para o mesmo alvo
 $check_existing = "SELECT id FROM reports WHERE reporter_id = ? AND reported_id = ? AND status = 'pending'";
 $stmt = $mysqli->prepare($check_existing);
+if (!$stmt) {
+    http_response_code(500);
+    echo json_encode(['success' => false, 'message' => 'Erro interno do servidor']);
+    exit;
+}
+
 $stmt->bind_param("ii", $reporter_id, $reported_id);
 $stmt->execute();
 $result = $stmt->get_result();
+
 if ($result->num_rows > 0) {
+    $stmt->close();
     http_response_code(409);
     echo json_encode(['success' => false, 'message' => 'Você já possui uma denúncia pendente para este usuário']);
     exit;
@@ -93,22 +120,32 @@ if ($result->num_rows > 0) {
 $stmt->close();
 
 // Inserir a denúncia
-$insert_report = "INSERT INTO reports (reporter_id, reported_id, reason, created_at) VALUES (?, ?, ?, NOW())";
+$insert_report = "INSERT INTO reports (reporter_id, reported_id, reason, status, created_at) VALUES (?, ?, ?, 'pending', NOW())";
 $stmt = $mysqli->prepare($insert_report);
+if (!$stmt) {
+    http_response_code(500);
+    echo json_encode(['success' => false, 'message' => 'Erro interno do servidor']);
+    exit;
+}
+
 $stmt->bind_param("iis", $reporter_id, $reported_id, $reason);
 
 if ($stmt->execute()) {
     $report_id = $mysqli->insert_id;
     $stmt->close();
-   
+    
+    // Log da ação (opcional)
+    error_log("Nova denúncia criada - ID: $report_id, Reporter: $reporter_id, Reported: $reported_id");
+    
     echo json_encode([
         'success' => true,
         'message' => 'Denúncia enviada com sucesso! A equipe de moderação irá analisar.',
         'report_id' => $report_id
     ]);
 } else {
+    $stmt->close();
     http_response_code(500);
-    echo json_encode(['success' => false, 'message' => 'Erro interno do servidor']);
+    echo json_encode(['success' => false, 'message' => 'Erro ao processar denúncia']);
 }
 
 $mysqli->close();
