@@ -242,7 +242,7 @@ class ViewAvatar {
                 content.innerHTML = '<div class="spinner-border" role="status"><span class="visually-hidden">Carregando...</span></div>';
                 
                 // Configurar botão de perfil completo
-                fullProfileBtn.href = '../ViewProfile/?id=' + userId;
+                fullProfileBtn.href = '../viewprofile/?id=' + userId;
                 
                 // Mostrar modal
                 modal.show();
