@@ -1,7 +1,11 @@
 <?php
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../components/ViewAvatar/index.php';
-session_start();
+
+// Verificar se a sessão já não foi iniciada
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 $user_id = $_SESSION['user_id'] ?? null;
 $is_admin = false;
@@ -391,37 +395,33 @@ function getFriendshipStatus($mysqli, $user_id, $friend_id) {
     
     <!-- Navbar corrigida para ficar igual à homepage -->
     <nav class="navbar navbar-expand-lg bg-body-tertiary" data-bs-theme="dark">
-        <div class="container-fluid">
-            <a class="navbar-brand" href="../homepage/">
-                <i class="bi bi-dice-6"></i> CritMeet
-            </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarSupportedContent">
-                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                    <li class="nav-item"><a class="nav-link" href="../homepage/"><i class="bi bi-house"></i> Home</a></li>
-                    <li class="nav-item"><a class="nav-link" href="../Profile/"><i class="bi bi-person"></i> Meu Perfil</a></li>
-                    <li class="nav-item"><a class="nav-link" href="../rpg_info"><i class="bi bi-dice-5"></i> RPG</a></li>
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
-                            <i class="bi bi-three-dots"></i> Mais...
-                        </a>
-                        <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="../settings/"><i class="bi bi-gear"></i> Configurações</a></li>
-                            <li><a class="dropdown-item active" href="../friends/"><i class="bi bi-people"></i> Conexões</a></li>
-                            <li><a class="dropdown-item" href="../chat/"><i class="bi bi-chat"></i> Chat</a></li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="../../components/Logout/"><i class="bi bi-box-arrow-right"></i> Logout</a></li>
-                            <?php if ($is_admin): ?>
-                                <li><a class="dropdown-item text-danger" href="../admin/"><i class="bi bi-shield-check"></i> Administração</a></li>
-                            <?php endif; ?>
-                        </ul>
-                    </li>
-                </ul>
-            </div>
+    <div class="container-fluid">
+        <a class="navbar-brand" href="../homepage/">CritMeet</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarSupportedContent">
+            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                <li class="nav-item"><a class="nav-link active" href="../homepage/">Home</a></li>
+                <li class="nav-item"><a class="nav-link" href="../Profile/">Meu Perfil</a></li>
+                <li class="nav-item"><a class="nav-link" href="../rpg_info">RPG</a></li>
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Mais...</a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="../settings/">Configurações</a></li>
+                        <li><a class="dropdown-item" href="../friends/">Conexões</a></li>
+                        <li><a class="dropdown-item" href="../chat/">Chat</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="../../components/Logout/">Logout</a></li>
+                        <?php if ($is_admin): ?>
+                            <li><a class="dropdown-item text-danger" href="../admin/">Lista de Usuários</a></li>
+                        <?php endif; ?>
+                    </ul>
+                </li>
+            </ul>
         </div>
-    </nav>
+    </div>
+</nav>
 
     <div class="container mt-4">
         <!-- Alert Messages -->
