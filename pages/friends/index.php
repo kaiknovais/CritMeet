@@ -166,45 +166,79 @@ function getFriendshipStatus($mysqli, $user_id, $friend_id) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Conexões - CritMeet</title>
+    <link rel="stylesheet" href="../../../assets/mobile.css" media="screen and (max-width: 600px)">
+    <link rel="stylesheet" href="../../../assets/desktop.css" media="screen and (min-width: 601px)">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
     <style>
-        body {
-            background-color: #f8f9fa;
+        /* Compatibilidade com o estilo do CritMeet Homepage */
+        .notification-badge {
+            position: relative;
         }
         
-        .connections-container {
-            max-width: 1200px;
-            margin: 2rem auto;
-            padding: 0 15px;
+        .notification-badge .badge {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background-color: #dc3545;
+            color: white;
+            border-radius: 50%;
+            padding: 2px 6px;
+            font-size: 0.7rem;
         }
         
-        .search-card {
+        .toggle-section {
+            margin-bottom: 20px;
+        }
+        
+        /* Estilo dos componentes principais */
+        .component-section {
             background: white;
-            border-radius: 15px;
-            padding: 2rem;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            margin-bottom: 2rem;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
         
-        .user-card {
-            background: white;
-            border-radius: 12px;
-            padding: 1.5rem;
-            margin-bottom: 1rem;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        .component-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #f0f0f0;
         }
         
-        .user-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        .component-header i {
+            margin-right: 10px;
+            font-size: 1.2rem;
+        }
+        
+        .component-header h4 {
+            margin: 0;
+            color: #333;
+        }
+        
+        /* Estilo dos cards de usuário */
+        .user-item {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: background-color 0.2s ease;
+        }
+        
+        .user-item:hover {
+            background: #e9ecef;
         }
         
         .user-info {
             display: flex;
             align-items: center;
-            gap: 1rem;
+            gap: 12px;
+            flex: 1;
         }
         
         .user-details {
@@ -214,7 +248,7 @@ function getFriendshipStatus($mysqli, $user_id, $friend_id) {
         .user-name {
             font-weight: 600;
             color: #212529;
-            margin-bottom: 0.25rem;
+            margin-bottom: 2px;
         }
         
         .user-username {
@@ -222,114 +256,139 @@ function getFriendshipStatus($mysqli, $user_id, $friend_id) {
             font-size: 0.9rem;
         }
         
-        .section-title {
-            color: #495057;
-            font-weight: 600;
-            margin-bottom: 1.5rem;
-            padding-bottom: 0.5rem;
-            border-bottom: 2px solid #dee2e6;
-        }
-        
-        .status-badge {
-            font-size: 0.75rem;
-            padding: 0.25rem 0.5rem;
-        }
-        
-        .empty-state {
-            text-align: center;
-            padding: 3rem;
+        .user-status {
             color: #6c757d;
+            font-size: 0.8rem;
+            font-style: italic;
         }
         
-        .empty-state i {
-            font-size: 3rem;
-            margin-bottom: 1rem;
-            opacity: 0.5;
-        }
-        
-        .btn-group-actions {
+        /* Botões de ação */
+        .action-buttons {
             display: flex;
-            gap: 0.5rem;
+            gap: 8px;
             flex-wrap: wrap;
+        }
+        
+        .action-buttons .btn {
+            font-size: 0.9rem;
+            padding: 6px 12px;
+        }
+        
+        /* Seção de busca */
+        .search-section {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
         
         .search-form {
             position: relative;
         }
         
-        .search-form .form-control {
-            padding-right: 3rem;
+        /* Estados vazios */
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #6c757d;
         }
         
-        .search-form .btn {
-            position: absolute;
-            right: 0;
-            top: 0;
-            bottom: 0;
-            border-radius: 0 0.375rem 0.375rem 0;
+        .empty-state i {
+            font-size: 3rem;
+            margin-bottom: 15px;
+            opacity: 0.5;
         }
         
-        .navbar-brand {
-            font-weight: bold;
-            font-size: 1.5rem;
+        .empty-state h5 {
+            margin-bottom: 10px;
         }
         
-        .notification-badge {
-            position: absolute;
-            top: -8px;
-            right: -8px;
-            background: #dc3545;
-            color: white;
-            border-radius: 50%;
-            width: 20px;
-            height: 20px;
-            font-size: 0.7rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+        /* Badges de status */
+        .status-badge {
+            font-size: 0.75rem;
+            padding: 4px 8px;
+            border-radius: 15px;
         }
         
-        .tab-content {
-            margin-top: 2rem;
-        }
-        
+        /* Tabs personalizadas */
         .nav-pills .nav-link {
             color: #6c757d;
             border-radius: 25px;
-            padding: 0.5rem 1.5rem;
-            margin-right: 0.5rem;
+            padding: 8px 20px;
+            margin-right: 8px;
+            margin-bottom: 8px;
+            background: white;
+            border: 1px solid #dee2e6;
+            transition: all 0.2s ease;
+        }
+        
+        .nav-pills .nav-link:hover {
+            background: #f8f9fa;
+            color: #495057;
         }
         
         .nav-pills .nav-link.active {
             background-color: #007bff;
+            border-color: #007bff;
+            color: white;
         }
         
+        .nav-pills .nav-link .badge {
+            margin-left: 5px;
+        }
+        
+        /* Responsividade melhorada */
         @media (max-width: 768px) {
-            .connections-container {
-                margin: 1rem auto;
-                padding: 0 10px;
+            .toggle-section .col-md-3 {
+                margin-bottom: 10px;
             }
             
-            .search-card {
-                padding: 1.5rem;
+            .user-item {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 15px;
             }
             
-            .user-card {
-                padding: 1rem;
+            .user-info {
+                justify-content: flex-start;
             }
             
-            .btn-group-actions {
+            .action-buttons {
+                justify-content: center;
+                width: 100%;
+            }
+            
+            .action-buttons .btn {
+                flex: 1;
+                min-width: 120px;
+            }
+            
+            .nav-pills {
                 flex-direction: column;
             }
             
-            .btn-group-actions .btn {
-                width: 100%;
-                margin-bottom: 0.25rem;
+            .nav-pills .nav-link {
+                margin-right: 0;
+                text-align: center;
             }
+        }
+        
+        /* Alertas customizados */
+        .alert {
+            border-radius: 10px;
+            border: none;
+            padding: 15px 20px;
+        }
+        
+        .alert i {
+            margin-right: 8px;
         }
     </style>
 </head>
 <body>
+    <?php include 'header.php'; ?>
+    
     <!-- Navbar -->
     <nav class="navbar navbar-expand-lg bg-body-tertiary" data-bs-theme="dark">
         <div class="container-fluid">
@@ -350,7 +409,7 @@ function getFriendshipStatus($mysqli, $user_id, $friend_id) {
                             <?php
                             $pending_count = $result_pending->num_rows;
                             if ($pending_count > 0) {
-                                echo '<span class="notification-badge">' . $pending_count . '</span>';
+                                echo '<span class="notification-badge"><span class="badge">' . $pending_count . '</span></span>';
                             }
                             ?>
                         </a>
@@ -370,7 +429,7 @@ function getFriendshipStatus($mysqli, $user_id, $friend_id) {
         </div>
     </nav>
 
-    <div class="connections-container">
+    <div class="container mt-4">
         <!-- Alert Messages -->
         <?php if (isset($message)): ?>
             <div class="alert alert-<?php echo $alert_type; ?> alert-dismissible fade show" role="alert">
@@ -380,11 +439,12 @@ function getFriendshipStatus($mysqli, $user_id, $friend_id) {
             </div>
         <?php endif; ?>
 
-        <!-- Search Section -->
-        <div class="search-card">
-            <h2 class="section-title">
-                <i class="bi bi-search"></i> Buscar Pessoas
-            </h2>
+        <!-- Seção de Busca -->
+        <div class="search-section">
+            <div class="component-header">
+                <i class="bi bi-search text-primary"></i>
+                <h4>Buscar Pessoas</h4>
+            </div>
             <form method="GET" class="search-form">
                 <div class="input-group">
                     <input type="text" name="search" class="form-control form-control-lg" 
@@ -396,38 +456,38 @@ function getFriendshipStatus($mysqli, $user_id, $friend_id) {
                 </div>
             </form>
 
-            <!-- Search Results -->
+            <!-- Resultados da Pesquisa -->
             <?php if (!empty($search_query)): ?>
                 <div class="mt-4">
-                    <h5 class="mb-3">Resultados da pesquisa:</h5>
+                    <h6 class="mb-3 text-muted">Resultados para "<?php echo htmlspecialchars($search_query); ?>":</h6>
                     <?php if ($search_result && $search_result->num_rows > 0): ?>
                         <?php while ($search = $search_result->fetch_assoc()): ?>
                             <?php $friendship_status = getFriendshipStatus($mysqli, $user_id, $search['id']); ?>
-                            <div class="user-card">
+                            <div class="user-item">
                                 <div class="user-info">
                                     <?php renderViewAvatar($search['id'], 'medium'); ?>
                                     <div class="user-details">
                                         <div class="user-name"><?php echo htmlspecialchars($search['name'] ?: $search['username']); ?></div>
                                         <div class="user-username">@<?php echo htmlspecialchars($search['username']); ?></div>
                                     </div>
-                                    <div class="btn-group-actions">
-                                        <?php if ($friendship_status === null): ?>
-                                            <form method="POST" style="display:inline;">
-                                                <input type="hidden" name="friend_id" value="<?php echo $search['id']; ?>">
-                                                <button type="submit" name="add_friend" class="btn btn-primary">
-                                                    <i class="bi bi-person-plus"></i> Adicionar
-                                                </button>
-                                            </form>
-                                        <?php elseif ($friendship_status === 'pending'): ?>
-                                            <span class="badge bg-warning status-badge">
-                                                <i class="bi bi-clock"></i> Pendente
-                                            </span>
-                                        <?php elseif ($friendship_status === 'accepted'): ?>
-                                            <span class="badge bg-success status-badge">
-                                                <i class="bi bi-check-circle"></i> Amigos
-                                            </span>
-                                        <?php endif; ?>
-                                    </div>
+                                </div>
+                                <div class="action-buttons">
+                                    <?php if ($friendship_status === null): ?>
+                                        <form method="POST" style="display:inline;">
+                                            <input type="hidden" name="friend_id" value="<?php echo $search['id']; ?>">
+                                            <button type="submit" name="add_friend" class="btn btn-primary btn-sm">
+                                                <i class="bi bi-person-plus"></i> Adicionar
+                                            </button>
+                                        </form>
+                                    <?php elseif ($friendship_status === 'pending'): ?>
+                                        <span class="badge bg-warning status-badge">
+                                            <i class="bi bi-clock"></i> Pendente
+                                        </span>
+                                    <?php elseif ($friendship_status === 'accepted'): ?>
+                                        <span class="badge bg-success status-badge">
+                                            <i class="bi bi-check-circle"></i> Amigos
+                                        </span>
+                                    <?php endif; ?>
                                 </div>
                             </div>
                         <?php endwhile; ?>
@@ -441,148 +501,150 @@ function getFriendshipStatus($mysqli, $user_id, $friend_id) {
             <?php endif; ?>
         </div>
 
-        <!-- Tabs Navigation -->
-        <ul class="nav nav-pills justify-content-center mb-4">
-            <li class="nav-item">
-                <a class="nav-link active" data-bs-toggle="pill" href="#friends-tab">
+        <!-- Botões de Toggle (estilo homepage) -->
+        <div class="row text-center toggle-section">
+            <div class="col-md-4">
+                <button type="button" class="btn btn-primary w-100 notification-badge" data-bs-toggle="collapse" data-bs-target="#friendsSection" aria-expanded="true" aria-controls="friendsSection">
                     <i class="bi bi-people-fill"></i> Meus Amigos
-                    <span class="badge bg-primary ms-2"><?php echo $result_friends->num_rows; ?></span>
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link" data-bs-toggle="pill" href="#pending-tab">
+                    <?php if ($result_friends->num_rows > 0): ?>
+                        <span class="badge"><?php echo $result_friends->num_rows; ?></span>
+                    <?php endif; ?>
+                </button>
+            </div>
+            <div class="col-md-4">
+                <button type="button" class="btn btn-info w-100 notification-badge" data-bs-toggle="collapse" data-bs-target="#pendingSection" aria-expanded="false" aria-controls="pendingSection">
                     <i class="bi bi-person-plus"></i> Solicitações
                     <?php if ($result_pending->num_rows > 0): ?>
-                        <span class="badge bg-danger ms-2"><?php echo $result_pending->num_rows; ?></span>
+                        <span class="badge"><?php echo $result_pending->num_rows; ?></span>
                     <?php endif; ?>
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link" data-bs-toggle="pill" href="#sent-tab">
+                </button>
+            </div>
+            <div class="col-md-4">
+                <button type="button" class="btn btn-warning w-100 notification-badge" data-bs-toggle="collapse" data-bs-target="#sentSection" aria-expanded="false" aria-controls="sentSection">
                     <i class="bi bi-clock"></i> Enviadas
                     <?php if ($result_sent->num_rows > 0): ?>
-                        <span class="badge bg-warning ms-2"><?php echo $result_sent->num_rows; ?></span>
+                        <span class="badge"><?php echo $result_sent->num_rows; ?></span>
                     <?php endif; ?>
-                </a>
-            </li>
-        </ul>
-
-        <!-- Tab Content -->
-        <div class="tab-content">
-            <!-- Friends Tab -->
-            <div class="tab-pane fade show active" id="friends-tab">
-                <div class="search-card">
-                    <h3 class="section-title">
-                        <i class="bi bi-people-fill"></i> Meus Amigos
-                    </h3>
-                    <?php if ($result_friends->num_rows > 0): ?>
-                        <?php while ($friend = $result_friends->fetch_assoc()): ?>
-                            <div class="user-card">
-                                <div class="user-info">
-                                    <?php renderViewAvatar($friend['id'], 'medium'); ?>
-                                    <div class="user-details">
-                                        <div class="user-name"><?php echo htmlspecialchars($friend['name'] ?: $friend['username']); ?></div>
-                                        <div class="user-username">@<?php echo htmlspecialchars($friend['username']); ?></div>
-                                    </div>
-                                    <div class="btn-group-actions">
-                                        <a href="../chat/?friend_id=<?php echo $friend['id']; ?>" class="btn btn-success">
-                                            <i class="bi bi-chat"></i> Conversar
-                                        </a>
-                                        <form method="POST" style="display:inline;" onsubmit="return confirm('Tem certeza que deseja remover este amigo?')">
-                                            <input type="hidden" name="friend_id" value="<?php echo $friend['id']; ?>">
-                                            <button type="submit" name="remove_friend" class="btn btn-outline-danger">
-                                                <i class="bi bi-person-dash"></i> Remover
-                                            </button>
-                                        </form>
-                                    </div>
-                                </div>
-                            </div>
-                        <?php endwhile; ?>
-                    <?php else: ?>
-                        <div class="empty-state">
-                            <i class="bi bi-people"></i>
-                            <h5>Nenhum amigo ainda</h5>
-                            <p>Use a busca acima para encontrar pessoas e adicionar como amigos!</p>
-                        </div>
-                    <?php endif; ?>
-                </div>
+                </button>
             </div>
+        </div>
 
-            <!-- Pending Requests Tab -->
-            <div class="tab-pane fade" id="pending-tab">
-                <div class="search-card">
-                    <h3 class="section-title">
-                        <i class="bi bi-person-plus"></i> Solicitações Recebidas
-                    </h3>
-                    <?php if ($result_pending->num_rows > 0): ?>
-                        <?php while ($pending = $result_pending->fetch_assoc()): ?>
-                            <div class="user-card">
-                                <div class="user-info">
-                                    <?php renderViewAvatar($pending['user_id'], 'medium'); ?>
-                                    <div class="user-details">
-                                        <div class="user-name"><?php echo htmlspecialchars($pending['name'] ?: $pending['username']); ?></div>
-                                        <div class="user-username">@<?php echo htmlspecialchars($pending['username']); ?></div>
-                                        <small class="text-muted">Quer ser seu amigo</small>
-                                    </div>
-                                    <div class="btn-group-actions">
-                                        <form method="POST" style="display:inline;">
-                                            <input type="hidden" name="friendship_id" value="<?php echo $pending['id']; ?>">
-                                            <button type="submit" name="accept_friend" class="btn btn-success">
-                                                <i class="bi bi-check"></i> Aceitar
-                                            </button>
-                                        </form>
-                                        <form method="POST" style="display:inline;">
-                                            <input type="hidden" name="friendship_id" value="<?php echo $pending['id']; ?>">
-                                            <button type="submit" name="reject_friend" class="btn btn-outline-danger">
-                                                <i class="bi bi-x"></i> Rejeitar
-                                            </button>
-                                        </form>
-                                    </div>
+        <!-- Seção de Amigos -->
+        <div class="collapse show" id="friendsSection">
+            <div class="component-section">
+                <div class="component-header">
+                    <i class="bi bi-people-fill text-primary"></i>
+                    <h4>Meus Amigos</h4>
+                </div>
+                <?php if ($result_friends->num_rows > 0): ?>
+                    <?php while ($friend = $result_friends->fetch_assoc()): ?>
+                        <div class="user-item">
+                            <div class="user-info">
+                                <?php renderViewAvatar($friend['id'], 'medium'); ?>
+                                <div class="user-details">
+                                    <div class="user-name"><?php echo htmlspecialchars($friend['name'] ?: $friend['username']); ?></div>
+                                    <div class="user-username">@<?php echo htmlspecialchars($friend['username']); ?></div>
                                 </div>
                             </div>
-                        <?php endwhile; ?>
-                    <?php else: ?>
-                        <div class="empty-state">
-                            <i class="bi bi-person-plus"></i>
-                            <h5>Nenhuma solicitação pendente</h5>
-                            <p>Você não possui solicitações de amizade no momento.</p>
+                            <div class="action-buttons">
+                                <a href="../chat/?friend_id=<?php echo $friend['id']; ?>" class="btn btn-success btn-sm">
+                                    <i class="bi bi-chat"></i> Conversar
+                                </a>
+                                <form method="POST" style="display:inline;" onsubmit="return confirm('Tem certeza que deseja remover este amigo?')">
+                                    <input type="hidden" name="friend_id" value="<?php echo $friend['id']; ?>">
+                                    <button type="submit" name="remove_friend" class="btn btn-outline-danger btn-sm">
+                                        <i class="bi bi-person-dash"></i> Remover
+                                    </button>
+                                </form>
+                            </div>
                         </div>
-                    <?php endif; ?>
-                </div>
+                    <?php endwhile; ?>
+                <?php else: ?>
+                    <div class="empty-state">
+                        <i class="bi bi-people"></i>
+                        <h5>Nenhum amigo ainda</h5>
+                        <p>Use a busca acima para encontrar pessoas e adicionar como amigos!</p>
+                    </div>
+                <?php endif; ?>
             </div>
+        </div>
 
-            <!-- Sent Requests Tab -->
-            <div class="tab-pane fade" id="sent-tab">
-                <div class="search-card">
-                    <h3 class="section-title">
-                        <i class="bi bi-clock"></i> Solicitações Enviadas
-                    </h3>
-                    <?php if ($result_sent->num_rows > 0): ?>
-                        <?php while ($sent = $result_sent->fetch_assoc()): ?>
-                            <div class="user-card">
-                                <div class="user-info">
-                                    <?php renderViewAvatar($sent['user_id'], 'medium'); ?>
-                                    <div class="user-details">
-                                        <div class="user-name"><?php echo htmlspecialchars($sent['name'] ?: $sent['username']); ?></div>
-                                        <div class="user-username">@<?php echo htmlspecialchars($sent['username']); ?></div>
-                                        <small class="text-muted">Aguardando resposta...</small>
-                                    </div>
-                                    <div class="btn-group-actions">
-                                        <span class="badge bg-warning status-badge">
-                                            <i class="bi bi-clock"></i> Pendente
-                                        </span>
-                                    </div>
+        <!-- Seção de Solicitações Pendentes -->
+        <div class="collapse" id="pendingSection">
+            <div class="component-section">
+                <div class="component-header">
+                    <i class="bi bi-person-plus text-info"></i>
+                    <h4>Solicitações Recebidas</h4>
+                </div>
+                <?php if ($result_pending->num_rows > 0): ?>
+                    <?php while ($pending = $result_pending->fetch_assoc()): ?>
+                        <div class="user-item">
+                            <div class="user-info">
+                                <?php renderViewAvatar($pending['user_id'], 'medium'); ?>
+                                <div class="user-details">
+                                    <div class="user-name"><?php echo htmlspecialchars($pending['name'] ?: $pending['username']); ?></div>
+                                    <div class="user-username">@<?php echo htmlspecialchars($pending['username']); ?></div>
+                                    <div class="user-status">Quer ser seu amigo</div>
                                 </div>
                             </div>
-                        <?php endwhile; ?>
-                    <?php else: ?>
-                        <div class="empty-state">
-                            <i class="bi bi-clock"></i>
-                            <h5>Nenhuma solicitação enviada</h5>
-                            <p>Você não enviou nenhuma solicitação de amizade.</p>
+                            <div class="action-buttons">
+                                <form method="POST" style="display:inline;">
+                                    <input type="hidden" name="friendship_id" value="<?php echo $pending['id']; ?>">
+                                    <button type="submit" name="accept_friend" class="btn btn-success btn-sm">
+                                        <i class="bi bi-check"></i> Aceitar
+                                    </button>
+                                </form>
+                                <form method="POST" style="display:inline;">
+                                    <input type="hidden" name="friendship_id" value="<?php echo $pending['id']; ?>">
+                                    <button type="submit" name="reject_friend" class="btn btn-outline-danger btn-sm">
+                                        <i class="bi bi-x"></i> Rejeitar
+                                    </button>
+                                </form>
+                            </div>
                         </div>
-                    <?php endif; ?>
+                    <?php endwhile; ?>
+                <?php else: ?>
+                    <div class="empty-state">
+                        <i class="bi bi-person-plus"></i>
+                        <h5>Nenhuma solicitação pendente</h5>
+                        <p>Você não possui solicitações de amizade no momento.</p>
+                    </div>
+                <?php endif; ?>
+            </div>
+        </div>
+
+        <!-- Seção de Solicitações Enviadas -->
+        <div class="collapse" id="sentSection">
+            <div class="component-section">
+                <div class="component-header">
+                    <i class="bi bi-clock text-warning"></i>
+                    <h4>Solicitações Enviadas</h4>
                 </div>
+                <?php if ($result_sent->num_rows > 0): ?>
+                    <?php while ($sent = $result_sent->fetch_assoc()): ?>
+                        <div class="user-item">
+                            <div class="user-info">
+                                <?php renderViewAvatar($sent['user_id'], 'medium'); ?>
+                                <div class="user-details">
+                                    <div class="user-name"><?php echo htmlspecialchars($sent['name'] ?: $sent['username']); ?></div>
+                                    <div class="user-username">@<?php echo htmlspecialchars($sent['username']); ?></div>
+                                    <div class="user-status">Aguardando resposta...</div>
+                                </div>
+                            </div>
+                            <div class="action-buttons">
+                                <span class="badge bg-warning status-badge">
+                                    <i class="bi bi-clock"></i> Pendente
+                                </span>
+                            </div>
+                        </div>
+                    <?php endwhile; ?>
+                <?php else: ?>
+                    <div class="empty-state">
+                        <i class="bi bi-clock"></i>
+                        <h5>Nenhuma solicitação enviada</h5>
+                        <p>Você não enviou nenhuma solicitação de amizade.</p>
+                    </div>
+                <?php endif; ?>
             </div>
         </div>
     </div>
