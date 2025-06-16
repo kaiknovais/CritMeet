@@ -87,9 +87,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         </form>
         <a href="../register/">
             <button type="button">Cadastre-se</button><br>
-        </a>
-        <button type="button">Google</button>
-        
+        </a>        
         <?php if (isset($error)) { echo "<p style='color:red;'>$error</p>"; } ?>
     </div>
 

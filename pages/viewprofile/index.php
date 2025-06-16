@@ -1,5 +1,4 @@
 <?php
-// components/ViewProfile/index.php - Versão corrigida
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../components/Tags/index.php';
 session_start();

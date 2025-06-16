@@ -30,7 +30,7 @@ class ReportModal {
                 <div class="modal-content">
                     <div class="modal-header" style="background: linear-gradient(135deg, #ff6b6b 0%, #ff8e8e 100%); border-bottom: 1px solid rgba(255,255,255,0.2);">
                         <h5 class="modal-title text-white" id="reportModalLabel">
-                            <i class="bi bi-flag-fill me-2"></i> Denunciar Usuário
+                            <i class="bi bi-flag-fill me-2"></i> Denunciar admin
                         </h5>
                         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
@@ -64,26 +64,17 @@ class ReportModal {
                                 ></textarea>
                                 <div class="form-text d-flex justify-content-between mt-2">
                                     <small class="text-muted">Mínimo: 10 caracteres</small>
-                                    <small id="charCount" class="fw-bold">0/1000</small>
+                                    <small id="charCount" class="fw-bold">15/1000</small>
                                 </div>
                             </div>
                         </form>
-                        <!-- Debug info (removível em produção) -->
-                        <div id="debugInfo" style="display: none;" class="alert alert-secondary small">
-                            <strong>Debug Info:</strong>
-                            <div>API URL: <span id="debugApiUrl"></span></div>
-                            <div>Current Path: <span id="debugCurrentPath"></span></div>
-                        </div>
                     </div>
                     <div class="modal-footer" style="background-color: #f8f9fa; border-top: 1px solid #dee2e6;">
-                        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="document.getElementById('debugInfo').style.display = document.getElementById('debugInfo').style.display === 'none' ? 'block' : 'none'">
-                            Debug
-                        </button>
                         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
                             <i class="bi bi-x-circle me-1"></i> Cancelar
                         </button>
-                        <button type="button" class="btn btn-primary" id="submitReport" disabled style="background: linear-gradient(135deg, #ff6b6b 0%, #ff8e8e 100%); border: none; box-shadow: 0 2px 4px rgba(255,107,107,0.3);">
-                            <i class="bi bi-send me-1"></i> Enviar Denúncia
+                        <button type="button" class="btn btn-primary" id="submitReport" style="background: linear-gradient(135deg, #ff6b6b 0%, #ff8e8e 100%); border: none; box-shadow: 0 2px 4px rgba(255,107,107,0.3);">
+                            <i class="bi bi-send me-1"></i> Enviando...
                         </button>
                     </div>
                 </div>
@@ -116,7 +107,7 @@ class ReportModal {
             
             submitBtn.disabled = !isValid;
             
-            // Atualizar contador de caracteres com cores mais suaves
+            // Atualizar contador de caracteres
             charCount.textContent = `${reasonLength}/1000`;
             
             if (reasonLength < 10) {
@@ -161,13 +152,6 @@ class ReportModal {
             }
         });
 
-        // Escapar modal com ESC
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && this.modal && this.modal._isShown) {
-                this.modal.hide();
-            }
-        });
-
         // Melhorar UX do textarea
         reasonTextarea.addEventListener('focus', () => {
             reasonTextarea.style.borderColor = '#0d6efd';
@@ -199,13 +183,8 @@ class ReportModal {
         if (username) {
             modalLabel.innerHTML = `<i class="bi bi-flag-fill me-2"></i> Denunciar ${this.escapeHtml(username)}`;
         } else {
-            modalLabel.innerHTML = '<i class="bi bi-flag-fill me-2"></i> Denunciar Usuário';
+            modalLabel.innerHTML = '<i class="bi bi-flag-fill me-2"></i> Denunciar admin';
         }
-        
-        // Atualizar debug info
-        const apiUrl = this.getApiUrl();
-        document.getElementById('debugApiUrl').textContent = apiUrl;
-        document.getElementById('debugCurrentPath').textContent = window.location.pathname;
         
         this.clearForm();
         this.modal.show();
@@ -263,7 +242,6 @@ class ReportModal {
                          type === 'warning' ? 'bi-exclamation-triangle-fill' : 
                          type === 'info' ? 'bi-info-circle-fill' : 'bi-x-circle-fill';
         
-        // Cores mais suaves para os alertas
         const alertColors = {
             success: 'alert-success border-success',
             warning: 'alert-warning border-warning', 
@@ -299,33 +277,39 @@ class ReportModal {
         return div.innerHTML;
     }
 
+    // FIXED: Método melhorado para detectar URL da API
     getApiUrl() {
-        // Versão mais robusta para detectar o caminho correto
         const currentPath = window.location.pathname;
         const baseUrl = window.location.origin;
         
-        console.log('Current pathname:', currentPath);
-        console.log('Base URL:', baseUrl);
+        // Debug: log para verificar o caminho atual
+        console.log('Caminho atual:', currentPath);
+        console.log('URL base:', baseUrl);
         
-        // Detectar se estamos em uma página específica e ajustar o caminho
+        // Tentar diferentes caminhos baseados na estrutura atual
         let apiPath;
         
-        if (currentPath.includes('/pages/viewprofile/')) {
-            // Estamos na página viewprofile
-            apiPath = '../../components/Report/api.php';
-        } else if (currentPath.includes('/pages/')) {
-            // Estamos em outra página dentro de /pages/
-            apiPath = '../../components/Report/api.php';
-        } else if (currentPath.includes('/components/')) {
-            // Estamos dentro de components
-            apiPath = '../Report/api.php';
-        } else {
-            // Estamos na raiz ou em outro local
-            apiPath = 'components/Report/api.php';
+        // Se estamos na raiz do projeto
+        if (currentPath === '/' || currentPath === '/index.php') {
+            apiPath = '/components/Report/api.php';
+        }
+        // Se estamos em uma subpasta (ex: /pages/...)
+        else if (currentPath.includes('/pages/')) {
+            apiPath = '/components/Report/api.php';
+        }
+        // Se estamos em uma pasta de componentes
+        else if (currentPath.includes('/components/')) {
+            apiPath = '/components/Report/api.php';
+        }
+        // Fallback para caminho relativo
+        else {
+            apiPath = '/components/Report/api.php';
         }
         
-        console.log('Calculated API path:', apiPath);
-        return apiPath;
+        const fullUrl = baseUrl + apiPath;
+        console.log('URL da API construída:', fullUrl);
+        
+        return fullUrl;
     }
 
     async submitReport() {
@@ -360,48 +344,50 @@ class ReportModal {
         this.isSubmitting = true;
         submitBtn.disabled = true;
         submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Enviando...';
+        
+        // Limpar alertas anteriores
+        this.clearAlert();
 
         try {
             const apiUrl = this.getApiUrl();
             console.log('Enviando denúncia para:', apiUrl);
-            console.log('Dados:', formData);
+            console.log('Dados enviados:', formData);
             
             const response = await fetch(apiUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'X-Requested-With': 'XMLHttpRequest',
-                    'Accept': 'application/json'
+                    'Accept': 'application/json',
+                    'Cache-Control': 'no-cache'
                 },
                 body: JSON.stringify(formData),
                 credentials: 'same-origin'
             });
 
-            console.log('Response status:', response.status);
-            console.log('Response headers:', response.headers);
-            
-            const responseText = await response.text();
-            console.log('Response text (first 500 chars):', responseText.substring(0, 500));
-            
-            // Verificar se a resposta é HTML (indicando erro do servidor)
-            if (responseText.trim().startsWith('<!DOCTYPE') || responseText.trim().startsWith('<html')) {
-                console.error('Servidor retornou HTML em vez de JSON');
-                throw new Error('Servidor retornou página de erro. Verifique se o arquivo API existe e está acessível.');
-            }
-            
+            console.log('Status da resposta:', response.status);
+            console.log('Headers da resposta:', response.headers);
+
             let result;
             try {
-                result = JSON.parse(responseText);
+                const responseText = await response.text();
+                console.log('Resposta bruta do servidor:', responseText);
+                
+                // Verificar se a resposta é JSON válido
+                if (responseText.trim().startsWith('{') || responseText.trim().startsWith('[')) {
+                    result = JSON.parse(responseText);
+                } else {
+                    throw new Error('Resposta não é JSON válido: ' + responseText.substring(0, 100));
+                }
             } catch (parseError) {
                 console.error('Erro ao parsear JSON:', parseError);
-                console.error('Resposta completa:', responseText);
-                throw new Error(`Resposta inválida do servidor. Resposta recebida: ${responseText.substring(0, 100)}...`);
+                throw new Error('Resposta inválida do servidor. Verifique se a API está funcionando corretamente.');
             }
 
             if (response.ok && result.success) {
                 this.showAlert(result.message || 'Denúncia enviada com sucesso!', 'success', true);
                 
-                // Desabilitar formulário de forma mais suave
+                // Desabilitar formulário
                 const formElement = document.getElementById('reportForm');
                 formElement.style.opacity = '0.7';
                 formElement.style.pointerEvents = 'none';
@@ -427,8 +413,15 @@ class ReportModal {
                 } else if (response.status === 401) {
                     errorMessage = 'Sessão expirada. Por favor, faça login novamente';
                     alertType = 'warning';
+                    // Opcional: redirecionar para login
+                    setTimeout(() => {
+                        window.location.href = '/login';
+                    }, 3000);
                 } else if (response.status === 404) {
-                    errorMessage = 'Usuário não encontrado ou API não acessível';
+                    errorMessage = 'Usuário não encontrado ou API não disponível';
+                    alertType = 'warning';
+                } else if (response.status === 403) {
+                    errorMessage = 'Acesso negado. Verifique se você está logado';
                     alertType = 'warning';
                 } else if (response.status >= 500) {
                     errorMessage = 'Erro interno do servidor. Tente novamente em alguns minutos';
@@ -438,21 +431,30 @@ class ReportModal {
                 this.showAlert(errorMessage, alertType);
             }
         } catch (error) {
-            console.error('Erro ao enviar denúncia:', error);
+            console.error('Erro detalhado:', error);
             
             this.retryCount++;
             
-            if (this.retryCount < this.maxRetries) {
-                this.showAlert(`Erro de conexão. Tentativa ${this.retryCount}/${this.maxRetries}...`, 'warning');
-                
-                // Retry com delay
-                const delay = Math.min(Math.pow(2, this.retryCount) * 1000, 5000);
-                setTimeout(() => {
-                    this.submitReport();
-                }, delay);
-                return;
+            // Verificar tipos específicos de erro
+            if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+                if (this.retryCount < this.maxRetries) {
+                    this.showAlert(`Erro de rede. Tentativa ${this.retryCount}/${this.maxRetries}...`, 'warning');
+                    
+                    // Retry com delay exponencial
+                    const delay = Math.min(Math.pow(2, this.retryCount) * 1000, 5000);
+                    setTimeout(() => {
+                        this.submitReport();
+                    }, delay);
+                    return;
+                } else {
+                    this.showAlert('Erro de conexão persistente. Verifique sua conexão com a internet e tente novamente.', 'danger');
+                }
+            } else if (error.message.includes('CORS')) {
+                this.showAlert('Erro de CORS. Verifique a configuração do servidor.', 'danger');
+            } else if (error.message.includes('JSON')) {
+                this.showAlert('Erro de formato de dados. A API pode estar retornando dados inválidos.', 'danger');
             } else {
-                this.showAlert(`Erro persistente: ${error.message}`, 'danger');
+                this.showAlert('Erro inesperado: ' + error.message, 'danger');
             }
         } finally {
             if (this.retryCount >= this.maxRetries || !this.isSubmitting) {
@@ -475,15 +477,17 @@ window.showReportModal = function(userId, username = '') {
     window.reportModal.show(userId, username);
 };
 
-// Inicializar automaticamente quando Bootstrap estiver disponível
+// Inicializar automaticamente quando DOM estiver pronto
 document.addEventListener('DOMContentLoaded', () => {
     const initModal = () => {
         if (typeof bootstrap !== 'undefined') {
             if (!window.reportModal) {
                 window.reportModal = new ReportModal();
+                console.log('ReportModal inicializado com sucesso');
             }
         } else {
-            setTimeout(initModal, 100);
+            console.warn('Bootstrap ainda não carregado, tentando novamente...');
+            setTimeout(initModal, 200);
         }
     };
     

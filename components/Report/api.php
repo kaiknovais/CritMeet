@@ -2,13 +2,9 @@
 require_once __DIR__ . '/../../config.php';
 session_start();
 
-// Enable error reporting for debugging (remove in production)
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
-
 // Configurar cabeçalhos CORS e JSON com melhor controle de erros
 header('Content-Type: application/json; charset=utf-8');
-header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Origin: https://critmeet.com.br');
 header('Access-Control-Allow-Methods: POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, X-Requested-With');
 
@@ -17,56 +13,22 @@ function logError($message, $context = []) {
     $timestamp = date('Y-m-d H:i:s');
     $contextStr = !empty($context) ? json_encode($context) : '';
     error_log("[$timestamp] Report API Error: $message $contextStr");
-    
-    // Debug: também escrever em arquivo específico se possível
-    $debugFile = __DIR__ . '/debug.log';
-    if (is_writable(dirname($debugFile))) {
-        file_put_contents($debugFile, "[$timestamp] $message $contextStr\n", FILE_APPEND | LOCK_EX);
-    }
 }
 
 // Função para resposta JSON padronizada
 function jsonResponse($success, $message, $data = [], $httpCode = 200) {
-    // Garantir que não há saída anterior
-    if (ob_get_level()) {
-        ob_clean();
-    }
-    
     http_response_code($httpCode);
     $response = [
         'success' => $success,
         'message' => $message,
-        'timestamp' => date('c'),
-        'debug_info' => [
-            'api_path' => __FILE__,
-            'request_method' => $_SERVER['REQUEST_METHOD'] ?? 'unknown',
-            'content_type' => $_SERVER['CONTENT_TYPE'] ?? 'not set'
-        ]
+        'timestamp' => date('c')
     ];
     if (!empty($data)) {
         $response = array_merge($response, $data);
     }
-    
-    $jsonOutput = json_encode($response, JSON_UNESCAPED_UNICODE);
-    if ($jsonOutput === false) {
-        $jsonOutput = json_encode([
-            'success' => false,
-            'message' => 'Erro ao codificar resposta JSON: ' . json_last_error_msg(),
-            'timestamp' => date('c')
-        ]);
-    }
-    
-    echo $jsonOutput;
+    echo json_encode($response, JSON_UNESCAPED_UNICODE);
     exit;
 }
-
-// Log inicial para debug
-logError('API chamada iniciada', [
-    'method' => $_SERVER['REQUEST_METHOD'] ?? 'unknown',
-    'content_type' => $_SERVER['CONTENT_TYPE'] ?? 'not set',
-    'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? 'not set',
-    'request_uri' => $_SERVER['REQUEST_URI'] ?? 'not set'
-]);
 
 // Tratar requisições OPTIONS (CORS preflight)
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -90,25 +52,17 @@ $isAjax = (
 );
 
 if (!$isAjax) {
-    logError('Requisição não-AJAX detectada', [
-        'x_requested_with' => $_SERVER['HTTP_X_REQUESTED_WITH'] ?? 'not set',
-        'content_type' => $_SERVER['CONTENT_TYPE'] ?? 'not set'
-    ]);
-    jsonResponse(false, 'Acesso negado - requisição deve ser AJAX', [], 403);
+    logError('Requisição não-AJAX detectada');
+    jsonResponse(false, 'Acesso negado', [], 403);
 }
 
 // Verificar se usuário está logado
 if (!isset($_SESSION['user_id']) || empty($_SESSION['user_id'])) {
-    logError('Usuário não autenticado', [
-        'session_exists' => isset($_SESSION['user_id']),
-        'session_id' => session_id(),
-        'session_data' => array_keys($_SESSION)
-    ]);
+    logError('Usuário não autenticado', ['session' => isset($_SESSION['user_id'])]);
     jsonResponse(false, 'Usuário não autenticado', [], 401);
 }
 
 $reporter_id = (int)$_SESSION['user_id'];
-logError('Usuário autenticado', ['reporter_id' => $reporter_id]);
 
 // Validar entrada JSON
 $inputRaw = file_get_contents('php://input');
@@ -117,12 +71,10 @@ if (empty($inputRaw)) {
     jsonResponse(false, 'Dados não fornecidos', [], 400);
 }
 
-logError('Dados recebidos', ['raw_length' => strlen($inputRaw), 'raw_preview' => substr($inputRaw, 0, 100)]);
-
 $input = json_decode($inputRaw, true);
 if (json_last_error() !== JSON_ERROR_NONE) {
-    logError('JSON inválido', ['error' => json_last_error_msg(), 'raw' => substr($inputRaw, 0, 200)]);
-    jsonResponse(false, 'Formato de dados inválido: ' . json_last_error_msg(), [], 400);
+    logError('JSON inválido', ['error' => json_last_error_msg(), 'raw' => substr($inputRaw, 0, 100)]);
+    jsonResponse(false, 'Formato de dados inválido', [], 400);
 }
 
 // Validar campos obrigatórios
@@ -136,7 +88,6 @@ $reason = trim($input['reason']);
 
 // Validações específicas
 if ($reported_id === false || $reported_id <= 0) {
-    logError('ID inválido', ['reported_id_raw' => $input['reported_id'], 'filtered' => $reported_id]);
     jsonResponse(false, 'ID do usuário inválido', [], 400);
 }
 
@@ -158,13 +109,9 @@ if ($reporter_id === $reported_id) {
 }
 
 // Verificar conexão com banco
-if (!isset($mysqli) || !$mysqli || $mysqli->connect_error) {
-    logError('Erro de conexão com banco', [
-        'mysqli_exists' => isset($mysqli),
-        'mysqli_type' => isset($mysqli) ? gettype($mysqli) : 'not set',
-        'connect_error' => isset($mysqli) && $mysqli ? $mysqli->connect_error : 'mysqli not available'
-    ]);
-    jsonResponse(false, 'Erro interno do servidor - banco de dados indisponível', [], 500);
+if (!$mysqli || $mysqli->connect_error) {
+    logError('Erro de conexão com banco', ['error' => $mysqli->connect_error ?? 'mysqli não definido']);
+    jsonResponse(false, 'Erro interno do servidor', [], 500);
 }
 
 try {
@@ -183,14 +130,11 @@ try {
     $result = $stmt->get_result();
     if ($result->num_rows === 0) {
         $stmt->close();
-        logError('Usuário não encontrado', ['reported_id' => $reported_id]);
         jsonResponse(false, 'Usuário não encontrado', [], 404);
     }
     
     $user_data = $result->fetch_assoc();
     $stmt->close();
-    
-    logError('Usuário encontrado', ['username' => $user_data['username']]);
 
     // Verificar denúncia duplicada (últimas 24 horas)
     $check_existing = "SELECT id, created_at FROM reports 
