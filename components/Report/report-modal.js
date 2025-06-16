@@ -28,27 +28,31 @@ class ReportModal {
         <div class="modal fade" id="reportModal" tabindex="-1" aria-labelledby="reportModalLabel" aria-hidden="true">
             <div class="modal-dialog modal-dialog-centered">
                 <div class="modal-content">
-                    <div class="modal-header bg-danger text-white">
-                        <h5 class="modal-title" id="reportModalLabel">
-                            <i class="bi bi-flag"></i> Denunciar Usuário
+                    <div class="modal-header" style="background: linear-gradient(135deg, #ff6b6b 0%, #ff8e8e 100%); border-bottom: 1px solid rgba(255,255,255,0.2);">
+                        <h5 class="modal-title text-white" id="reportModalLabel">
+                            <i class="bi bi-flag-fill me-2"></i> Denunciar Usuário
                         </h5>
                         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
-                    <div class="modal-body">
+                    <div class="modal-body" style="background-color: #fafafa;">
                         <div id="reportAlert"></div>
-                        <div class="alert alert-info">
-                            <i class="bi bi-info-circle"></i>
-                            <strong>Importante:</strong> Denúncias falsas podem resultar em punições. 
-                            Descreva detalhadamente o motivo da denúncia.
+                        <div class="alert alert-light border-start border-4 border-info" style="background-color: #f8f9fa; border-color: #0dcaf0 !important;">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-info-circle-fill text-info me-2" style="font-size: 1.2em;"></i>
+                                <div>
+                                    <strong class="text-dark">Importante:</strong> 
+                                    <span class="text-muted">Denúncias falsas podem resultar em punições. Descreva detalhadamente o motivo da denúncia.</span>
+                                </div>
+                            </div>
                         </div>
                         <form id="reportForm">
                             <input type="hidden" id="reportedUserId" name="reported_id">
                             <div class="mb-3">
-                                <label for="reportReason" class="form-label fw-bold">
-                                    Motivo da denúncia: <span class="text-danger">*</span>
+                                <label for="reportReason" class="form-label fw-bold text-dark">
+                                    Motivo da denúncia: <span style="color: #dc3545;">*</span>
                                 </label>
                                 <textarea 
-                                    class="form-control" 
+                                    class="form-control border-2" 
                                     id="reportReason" 
                                     name="reason" 
                                     rows="5" 
@@ -56,28 +60,29 @@ class ReportModal {
                                     maxlength="1000"
                                     required
                                     autocomplete="off"
+                                    style="resize: vertical; min-height: 120px; border-color: #dee2e6; focus: border-color: #0d6efd;"
                                 ></textarea>
-                                <div class="form-text d-flex justify-content-between">
-                                    <span>Mínimo: 10 caracteres</span>
-                                    <span id="charCount" class="fw-bold">0</span>/1000
+                                <div class="form-text d-flex justify-content-between mt-2">
+                                    <small class="text-muted">Mínimo: 10 caracteres</small>
+                                    <small id="charCount" class="fw-bold">0/1000</small>
                                 </div>
                             </div>
                             <div class="mb-3">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="confirmReport" required>
-                                    <label class="form-check-label" for="confirmReport">
+                                <div class="form-check p-3" style="background-color: #fff; border: 1px solid #dee2e6; border-radius: 8px;">
+                                    <input class="form-check-input" type="checkbox" id="confirmReport" required style="transform: scale(1.1);">
+                                    <label class="form-check-label ms-2 text-dark" for="confirmReport">
                                         Confirmo que li as informações acima e que esta denúncia é verdadeira
                                     </label>
                                 </div>
                             </div>
                         </form>
                     </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                            <i class="bi bi-x-circle"></i> Cancelar
+                    <div class="modal-footer" style="background-color: #f8f9fa; border-top: 1px solid #dee2e6;">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                            <i class="bi bi-x-circle me-1"></i> Cancelar
                         </button>
-                        <button type="button" class="btn btn-danger" id="submitReport" disabled>
-                            <i class="bi bi-flag"></i> Enviar Denúncia
+                        <button type="button" class="btn btn-primary" id="submitReport" disabled style="background: linear-gradient(135deg, #ff6b6b 0%, #ff8e8e 100%); border: none; box-shadow: 0 2px 4px rgba(255,107,107,0.3);">
+                            <i class="bi bi-send me-1"></i> Enviar Denúncia
                         </button>
                     </div>
                 </div>
@@ -100,21 +105,32 @@ class ReportModal {
         
         // Função para validar e atualizar estado do botão
         const validateForm = () => {
-            const reasonLength = reasonTextarea.value.length;
+            const reasonLength = reasonTextarea.value.trim().length;
             const isConfirmed = confirmCheck.checked;
             const isValid = reasonLength >= 10 && isConfirmed && !this.isSubmitting;
             
             submitBtn.disabled = !isValid;
             
-            // Atualizar contador de caracteres
-            charCount.textContent = reasonLength;
+            // Atualizar contador de caracteres com cores mais suaves
+            charCount.textContent = `${reasonLength}/1000`;
             
             if (reasonLength < 10) {
-                charCount.className = 'fw-bold text-danger';
+                charCount.className = 'fw-bold';
+                charCount.style.color = '#dc3545';
             } else if (reasonLength > 900) {
-                charCount.className = 'fw-bold text-warning';
+                charCount.className = 'fw-bold';
+                charCount.style.color = '#fd7e14';
             } else {
-                charCount.className = 'fw-bold text-success';
+                charCount.className = 'fw-bold';
+                charCount.style.color = '#198754';
+            }
+
+            // Efeito visual no botão quando válido
+            if (isValid) {
+                submitBtn.style.transform = 'scale(1.02)';
+                submitBtn.style.transition = 'all 0.2s ease';
+            } else {
+                submitBtn.style.transform = 'scale(1)';
             }
         };
 
@@ -147,6 +163,17 @@ class ReportModal {
                 this.modal.hide();
             }
         });
+
+        // Melhorar UX do textarea
+        reasonTextarea.addEventListener('focus', () => {
+            reasonTextarea.style.borderColor = '#0d6efd';
+            reasonTextarea.style.boxShadow = '0 0 0 0.2rem rgba(13, 110, 253, 0.25)';
+        });
+
+        reasonTextarea.addEventListener('blur', () => {
+            reasonTextarea.style.borderColor = '#dee2e6';
+            reasonTextarea.style.boxShadow = 'none';
+        });
     }
 
     show(userId, username = '') {
@@ -157,6 +184,7 @@ class ReportModal {
 
         if (!userId || userId <= 0) {
             console.error('ID de usuário inválido:', userId);
+            this.showAlert('Erro: ID de usuário inválido', 'danger');
             return;
         }
 
@@ -165,9 +193,9 @@ class ReportModal {
         // Atualizar título com o nome do usuário
         const modalLabel = document.getElementById('reportModalLabel');
         if (username) {
-            modalLabel.innerHTML = `<i class="bi bi-flag"></i> Denunciar ${this.escapeHtml(username)}`;
+            modalLabel.innerHTML = `<i class="bi bi-flag-fill me-2"></i> Denunciar ${this.escapeHtml(username)}`;
         } else {
-            modalLabel.innerHTML = '<i class="bi bi-flag"></i> Denunciar Usuário';
+            modalLabel.innerHTML = '<i class="bi bi-flag-fill me-2"></i> Denunciar Usuário';
         }
         
         this.clearForm();
@@ -175,7 +203,11 @@ class ReportModal {
         
         // Focar no textarea após o modal abrir
         setTimeout(() => {
-            document.getElementById('reportReason').focus();
+            const textarea = document.getElementById('reportReason');
+            if (textarea) {
+                textarea.focus();
+                textarea.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
         }, 500);
     }
 
@@ -183,15 +215,29 @@ class ReportModal {
         const form = document.getElementById('reportForm');
         const charCount = document.getElementById('charCount');
         const submitBtn = document.getElementById('submitReport');
+        const textarea = document.getElementById('reportReason');
         
         if (form) form.reset();
         if (charCount) {
-            charCount.textContent = '0';
+            charCount.textContent = '0/1000';
             charCount.className = 'fw-bold';
+            charCount.style.color = '#6c757d';
         }
         if (submitBtn) {
             submitBtn.disabled = true;
-            submitBtn.innerHTML = '<i class="bi bi-flag"></i> Enviar Denúncia';
+            submitBtn.innerHTML = '<i class="bi bi-send me-1"></i> Enviar Denúncia';
+            submitBtn.style.transform = 'scale(1)';
+        }
+        if (textarea) {
+            textarea.style.borderColor = '#dee2e6';
+            textarea.style.boxShadow = 'none';
+        }
+        
+        // Restaurar opacidade do form
+        const formElement = document.getElementById('reportForm');
+        if (formElement) {
+            formElement.style.opacity = '1';
+            formElement.style.pointerEvents = 'auto';
         }
         
         this.isSubmitting = false;
@@ -204,12 +250,21 @@ class ReportModal {
         if (!alertDiv) return;
         
         const alertId = 'alert-' + Date.now();
-        const iconClass = type === 'success' ? 'bi-check-circle' : 
-                         type === 'warning' ? 'bi-exclamation-triangle' : 'bi-x-circle';
+        const iconClass = type === 'success' ? 'bi-check-circle-fill' : 
+                         type === 'warning' ? 'bi-exclamation-triangle-fill' : 
+                         type === 'info' ? 'bi-info-circle-fill' : 'bi-x-circle-fill';
         
+        // Cores mais suaves para os alertas
+        const alertColors = {
+            success: 'alert-success border-success',
+            warning: 'alert-warning border-warning', 
+            info: 'alert-info border-info',
+            danger: 'alert-light border-danger text-danger'
+        };
+
         alertDiv.innerHTML = `
-            <div class="alert alert-${type} alert-dismissible fade show" role="alert" id="${alertId}">
-                <i class="bi ${iconClass}"></i> ${this.escapeHtml(message)}
+            <div class="alert ${alertColors[type]} alert-dismissible fade show border-start border-4 mb-3" role="alert" id="${alertId}">
+                <i class="bi ${iconClass} me-2"></i> ${this.escapeHtml(message)}
                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             </div>`;
         
@@ -220,7 +275,7 @@ class ReportModal {
                     const bsAlert = new bootstrap.Alert(alert);
                     bsAlert.close();
                 }
-            }, 3000);
+            }, 4000);
         }
     }
 
@@ -236,51 +291,57 @@ class ReportModal {
     }
 
     getApiUrl() {
+        // Versão mais robusta para detectar o caminho correto
         const currentPath = window.location.pathname;
-        const pathSegments = currentPath.split('/').filter(Boolean);
+        const currentDir = window.location.href;
         
-        // Determinar a profundidade baseada na estrutura de pastas
-        let depth = 0;
+        // Tentar diferentes caminhos baseados na estrutura
+        const possiblePaths = [
+            'components/Report/api.php',
+            '../components/Report/api.php',
+            '../../components/Report/api.php',
+            '../../../components/Report/api.php'
+        ];
         
-        if (pathSegments.includes('pages')) {
-            const pagesIndex = pathSegments.indexOf('pages');
-            depth = pathSegments.length - pagesIndex - 1;
-        } else if (pathSegments.includes('components')) {
-            depth = 1;
+        // Se estivermos em uma página específica, ajustar o caminho
+        if (currentPath.includes('/pages/')) {
+            return '../../components/Report/api.php';
+        } else if (currentPath.includes('/components/')) {
+            return '../Report/api.php';
+        } else {
+            return 'components/Report/api.php';
         }
-        
-        const basePath = '../'.repeat(depth);
-        return `${basePath}components/Report/api.php`;
     }
 
     async submitReport() {
         if (this.isSubmitting) return;
         
         const submitBtn = document.getElementById('submitReport');
+        const reasonTextarea = document.getElementById('reportReason');
         const formData = {
             reported_id: parseInt(document.getElementById('reportedUserId').value),
-            reason: document.getElementById('reportReason').value.trim()
+            reason: reasonTextarea.value.trim()
         };
 
         // Validação final do lado cliente
         if (!formData.reported_id || formData.reported_id <= 0) {
-            this.showAlert('ID do usuário inválido. Tente recarregar a página.');
+            this.showAlert('ID do usuário inválido. Tente recarregar a página.', 'danger');
             return;
         }
 
         if (formData.reason.length < 10) {
-            this.showAlert('O motivo deve ter pelo menos 10 caracteres.');
-            document.getElementById('reportReason').focus();
+            this.showAlert('O motivo deve ter pelo menos 10 caracteres.', 'warning');
+            reasonTextarea.focus();
             return;
         }
 
         if (formData.reason.length > 1000) {
-            this.showAlert('O motivo não pode exceder 1000 caracteres.');
+            this.showAlert('O motivo não pode exceder 1000 caracteres.', 'warning');
             return;
         }
 
         if (!document.getElementById('confirmReport').checked) {
-            this.showAlert('Você deve confirmar que a denúncia é verdadeira.');
+            this.showAlert('Você deve confirmar que a denúncia é verdadeira.', 'warning');
             return;
         }
 
@@ -304,40 +365,54 @@ class ReportModal {
                 credentials: 'same-origin'
             });
 
-            // Verificar se a resposta é JSON válida
-            const contentType = response.headers.get('content-type');
-            if (!contentType || !contentType.includes('application/json')) {
-                throw new Error(`Resposta inválida do servidor (${response.status})`);
+            let result;
+            try {
+                const responseText = await response.text();
+                console.log('Resposta do servidor:', responseText);
+                result = JSON.parse(responseText);
+            } catch (parseError) {
+                console.error('Erro ao parsear JSON:', parseError);
+                throw new Error('Resposta inválida do servidor');
             }
-
-            const result = await response.json();
 
             if (response.ok && result.success) {
                 this.showAlert(result.message || 'Denúncia enviada com sucesso!', 'success', true);
                 
-                // Desabilitar formulário
-                document.getElementById('reportForm').style.opacity = '0.6';
-                document.getElementById('reportForm').style.pointerEvents = 'none';
+                // Desabilitar formulário de forma mais suave
+                const formElement = document.getElementById('reportForm');
+                formElement.style.opacity = '0.7';
+                formElement.style.pointerEvents = 'none';
                 
-                // Fechar modal após 3 segundos
+                // Atualizar botão para sucesso
+                submitBtn.innerHTML = '<i class="bi bi-check-circle me-1"></i> Enviado!';
+                submitBtn.style.background = 'linear-gradient(135deg, #198754 0%, #20c997 100%)';
+                
+                // Fechar modal após delay
                 setTimeout(() => {
                     this.modal.hide();
-                }, 3000);
+                }, 3500);
                 
                 this.retryCount = 0;
             } else {
-                // Erro do servidor
+                // Tratar diferentes códigos de erro
                 let errorMessage = result.message || 'Erro desconhecido do servidor';
+                let alertType = 'danger';
                 
                 if (response.status === 409) {
-                    errorMessage = 'Você já possui uma denúncia pendente para este usuário';
+                    errorMessage = 'Você já possui uma denúncia pendente para este usuário nas últimas 24 horas';
+                    alertType = 'info';
                 } else if (response.status === 401) {
                     errorMessage = 'Sessão expirada. Por favor, faça login novamente';
+                    alertType = 'warning';
+                } else if (response.status === 404) {
+                    errorMessage = 'Usuário não encontrado';
+                    alertType = 'warning';
                 } else if (response.status >= 500) {
                     errorMessage = 'Erro interno do servidor. Tente novamente em alguns minutos';
+                    alertType = 'danger';
                 }
                 
-                this.showAlert(errorMessage);
+                this.showAlert(errorMessage, alertType);
             }
         } catch (error) {
             console.error('Erro ao enviar denúncia:', error);
@@ -345,23 +420,25 @@ class ReportModal {
             this.retryCount++;
             
             if (this.retryCount < this.maxRetries) {
-                this.showAlert(`Erro de conexão. Tentativa ${this.retryCount}/${this.maxRetries}. Tentando novamente...`, 'warning');
+                this.showAlert(`Erro de conexão. Tentativa ${this.retryCount}/${this.maxRetries}...`, 'warning');
                 
-                // Retry com delay exponencial
-                const delay = Math.pow(2, this.retryCount) * 1000;
+                // Retry com delay
+                const delay = Math.min(Math.pow(2, this.retryCount) * 1000, 5000);
                 setTimeout(() => {
                     this.submitReport();
                 }, delay);
                 return;
             } else {
-                this.showAlert('Erro de conexão. Verifique sua internet e tente novamente em alguns minutos.');
+                this.showAlert('Erro de conexão persistente. Verifique sua internet e tente novamente mais tarde.', 'danger');
             }
         } finally {
             if (this.retryCount >= this.maxRetries || !this.isSubmitting) {
-                // Restaurar botão apenas se não for retry
                 this.isSubmitting = false;
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = '<i class="bi bi-flag"></i> Enviar Denúncia';
+                if (submitBtn.innerHTML.includes('Enviando')) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="bi bi-send me-1"></i> Enviar Denúncia';
+                    submitBtn.style.background = 'linear-gradient(135deg, #ff6b6b 0%, #ff8e8e 100%)';
+                }
             }
         }
     }
@@ -377,7 +454,6 @@ window.showReportModal = function(userId, username = '') {
 
 // Inicializar automaticamente quando Bootstrap estiver disponível
 document.addEventListener('DOMContentLoaded', () => {
-    // Aguardar Bootstrap carregar
     const initModal = () => {
         if (typeof bootstrap !== 'undefined') {
             if (!window.reportModal) {
