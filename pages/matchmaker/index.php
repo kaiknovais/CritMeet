@@ -425,7 +425,7 @@ $initial_match = $matchmaker->getNextMatch();
 <div class="container">
     <div class="matchmaker-container">
         <div class="text-center mb-3">
-            <h2><i class="bi bi-people-fill"></i> Encontrar Companheiros</h2>
+            <h2><i class="bi bi-people-fill"></i> Encontrar Jogadores</h2>
             <p class="text-muted">Descubra jogadores próximos a você</p>
         </div>
         
