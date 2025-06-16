@@ -89,7 +89,12 @@ class ReportModal {
         const reasonTextarea = document.getElementById('reportReason');
         const charCount = document.getElementById('charCount');
         const submitBtn = document.getElementById('submitReport');
-        const confirmCheck = document.getElementById('confirmReport');
+        
+        // Verificar se os elementos existem
+        if (!reasonTextarea || !charCount || !submitBtn) {
+            console.error('Elementos do modal não encontrados');
+            return;
+        }
         
         // Evitar múltiplos event listeners
         if (reasonTextarea.hasAttribute('data-report-listener')) return;
@@ -98,8 +103,7 @@ class ReportModal {
         // Função para validar e atualizar estado do botão
         const validateForm = () => {
             const reasonLength = reasonTextarea.value.trim().length;
-            const isConfirmed = confirmCheck.checked;
-            const isValid = reasonLength >= 10 && isConfirmed && !this.isSubmitting;
+            const isValid = reasonLength >= 10 && !this.isSubmitting;
             
             submitBtn.disabled = !isValid;
             
@@ -129,7 +133,6 @@ class ReportModal {
         // Event listeners
         reasonTextarea.addEventListener('input', validateForm);
         reasonTextarea.addEventListener('paste', () => setTimeout(validateForm, 10));
-        confirmCheck.addEventListener('change', validateForm);
 
         // Enviar denúncia
         submitBtn.addEventListener('click', () => this.submitReport());
@@ -310,6 +313,7 @@ class ReportModal {
         
         const submitBtn = document.getElementById('submitReport');
         const reasonTextarea = document.getElementById('reportReason');
+        
         const formData = {
             reported_id: parseInt(document.getElementById('reportedUserId').value),
             reason: reasonTextarea.value.trim()
@@ -329,11 +333,6 @@ class ReportModal {
 
         if (formData.reason.length > 1000) {
             this.showAlert('O motivo não pode exceder 1000 caracteres.', 'warning');
-            return;
-        }
-
-        if (!document.getElementById('confirmReport').checked) {
-            this.showAlert('Você deve confirmar que a denúncia é verdadeira.', 'warning');
             return;
         }
 
