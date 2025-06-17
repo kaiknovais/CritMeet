@@ -129,6 +129,23 @@ function getProfileImageUrl($image_data) {
             color: #6c757d;
             font-style: italic;
         }
+        .profile-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid rgba(255,255,255,0.5);
+        }
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .username-text {
+            color: rgba(255,255,255,0.9);
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
     </style>
 </head>
 <body>

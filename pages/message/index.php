@@ -5,17 +5,22 @@ session_start();
 $user_id = $_SESSION['user_id'] ?? null;
 $is_admin = false;
 
-if ($user_id) {
-    $query = "SELECT admin FROM users WHERE id = ?";
-    $stmt = $mysqli->prepare($query);
-    $stmt->bind_param("i", $user_id);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    if ($result && $row = $result->fetch_assoc()) {
-        $is_admin = $row['admin'] == 1;
-    }
-    $stmt->close();
+
+$user_id = $_SESSION['user_id'];
+$is_admin = false;
+$user = [];
+
+// Buscar dados do usuário logado (incluindo admin)
+$query = "SELECT id, username, name, image, admin FROM users WHERE id = ?";
+$stmt = $mysqli->prepare($query);
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$result = $stmt->get_result();
+if ($result && $row = $result->fetch_assoc()) {
+    $user = $row;
+    $is_admin = $row['admin'] == 1;
 }
+$stmt->close();
 
 if (!isset($_SESSION['user_id'])) {
     echo "<script>alert('Usuário não autenticado.'); window.location.href='../../pages/login/';</script>";

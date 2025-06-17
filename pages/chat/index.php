@@ -1,45 +1,29 @@
 <?php
 require_once __DIR__ . '/../../config.php';
+require_once __DIR__ . '/../../components/ViewAvatar/index.php';
 session_start();
 
 // Verifica se o usuário está autenticado
 $user_id = $_SESSION['user_id'] ?? null;
 $is_admin = false;
+$user = null;
 
 if (!$user_id) {
     echo "<script>alert('Usuário não autenticado.'); window.location.href='../../pages/login/';</script>";
     exit();
 }
 
-// Verificar se o usuário é administrador
-$query = "SELECT admin FROM users WHERE id = ?";
+// Verificar se o usuário é administrador e buscar dados do usuário
+$query = "SELECT username, name, image, admin FROM users WHERE id = ?";
 $stmt = $mysqli->prepare($query);
 $stmt->bind_param("i", $user_id);
 $stmt->execute();
 $result = $stmt->get_result();
 if ($result && $row = $result->fetch_assoc()) {
+    $user = $row;
     $is_admin = $row['admin'] == 1;
 }
 $stmt->close();
-
-// Função para obter URL da imagem de perfil
-function getProfileImageUrl($image_data) {
-    if (empty($image_data)) {
-        return null;
-    }
-    
-    // Verificar se é base64 (dados antigos)
-    if (preg_match('/^[a-zA-Z0-9\/\r\n+]*={0,2}$/', $image_data)) {
-        return 'data:image/jpeg;base64,' . $image_data;
-    } else {
-        // É um nome de arquivo
-        $file_path = '../../uploads/profiles/' . $image_data;
-        if (file_exists($file_path)) {
-            return $file_path;
-        }
-    }
-    return null;
-}
 
 // Função para obter URL da imagem do grupo
 function getGroupImageUrl($image_data) {
@@ -51,6 +35,21 @@ function getGroupImageUrl($image_data) {
         return $file_path;
     }
     return null;
+}
+
+// Função para obter URL da imagem de perfil (usando mesma lógica do ViewAvatar)
+function getProfileImageUrl($image_data) {
+    if (empty($image_data)) {
+        return 'default-avatar.png';
+    }
+    
+    // Verificar se é base64 (dados antigos)
+    if (preg_match('/^[a-zA-Z0-9\/\r\n+]*={0,2}$/', $image_data)) {
+        return 'data:image/jpeg;base64,' . $image_data;
+    } else {
+        // É um nome de arquivo
+        return '../../uploads/profiles/' . $image_data;
+    }
 }
 
 // Consultar amigos aceitos
@@ -152,8 +151,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_group'])) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CritMeet - Chats e Grupos</title>
-    <link rel="stylesheet" href="../../../assets/mobile.css" media="screen and (max-width: 600px)">
-    <link rel="stylesheet" href="../../../assets/desktop.css" media="screen and (min-width: 601px)">
+    <link rel="stylesheet" href="../../assets/mobile.css" media="screen and (max-width: 600px)">
+    <link rel="stylesheet" href="../../assets/desktop.css" media="screen and (min-width: 601px)">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
     
@@ -228,6 +227,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_group'])) {
             font-size: 0.85rem;
             color: #6c757d;
         }
+
+        .profile-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid rgba(255,255,255,0.5);
+        }
+        
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .username-text {
+            color: rgba(255,255,255,0.9);
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
     </style>
 </head>
 <body>
@@ -235,55 +254,55 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_group'])) {
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
     <nav class="navbar navbar-expand-lg bg-body-tertiary" data-bs-theme="dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="../homepage/">CritMeet</a>
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse" id="navbarSupportedContent">
-            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                <li class="nav-item"><a class="nav-link" href="../homepage/">Home</a></li>
-                <li class="nav-item"><a class="nav-link" href="../matchmaker/">Matchmaker</a></li>
-                <li class="nav-item"><a class="nav-link" href="../rpg_info">RPG</a></li>
-                <li class="nav-item"><a class="nav-link" href="../friends">Conexões</a></li>
-                <li class="nav-item"><a class="nav-link" href="../chat">Chat</a></li>
-            </ul>
-            
-            <!-- Seção do usuário -->
-            <ul class="navbar-nav">
-                <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" data-bs-toggle="dropdown">
-                        <div class="user-info">
-                            <img src="<?php echo getProfileImageUrl($user['image'] ?? ''); ?>" 
-                                 alt="Avatar" 
-                                 class="profile-avatar" 
-                                 onerror="this.src='default-avatar.png'" />
-                            <span class="username-text"><?php echo htmlspecialchars($user['username'] ?? 'Usuário'); ?></span>
-                        </div>
-                    </a>
-                    <ul class="dropdown-menu dropdown-menu-end">
-                        <li><a class="dropdown-item" href="../Profile/">
-                            <i class="bi bi-person-circle"></i> Meu Perfil
-                        </a></li>
-                        <li><a class="dropdown-item active" href="../settings/">
-                            <i class="bi bi-gear"></i> Configurações
-                        </a></li>
-                        <li><hr class="dropdown-divider"></li>
-                        <?php if ($is_admin): ?>
-                            <li><a class="dropdown-item text-danger" href="../admin/">
-                                <i class="bi bi-shield-check"></i> Painel Admin
+        <div class="container-fluid">
+            <a class="navbar-brand" href="../homepage/">CritMeet</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarSupportedContent">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                    <li class="nav-item"><a class="nav-link" href="../homepage/">Home</a></li>
+                    <li class="nav-item"><a class="nav-link" href="../matchmaker/">Matchmaker</a></li>
+                    <li class="nav-item"><a class="nav-link" href="../rpg_info">RPG</a></li>
+                    <li class="nav-item"><a class="nav-link" href="../friends">Conexões</a></li>
+                    <li class="nav-item"><a class="nav-link active" href="../chat">Chat</a></li>
+                </ul>
+                
+                <!-- Seção do usuário -->
+                <ul class="navbar-nav">
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" data-bs-toggle="dropdown">
+                            <div class="user-info">
+                                <img src="<?php echo getProfileImageUrl($user['image'] ?? ''); ?>" 
+                                     alt="Avatar" 
+                                     class="profile-avatar" 
+                                     onerror="this.src='default-avatar.png'" />
+                                <span class="username-text"><?php echo htmlspecialchars($user['username'] ?? 'Usuário'); ?></span>
+                            </div>
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item" href="../Profile/">
+                                <i class="bi bi-person-circle"></i> Meu Perfil
+                            </a></li>
+                            <li><a class="dropdown-item" href="../settings/">
+                                <i class="bi bi-gear"></i> Configurações
                             </a></li>
                             <li><hr class="dropdown-divider"></li>
-                        <?php endif; ?>
-                        <li><a class="dropdown-item text-danger" href="../../components/Logout/">
-                            <i class="bi bi-box-arrow-right"></i> Sair
-                        </a></li>
-                    </ul>
-                </li>
-            </ul>
+                            <?php if ($is_admin): ?>
+                                <li><a class="dropdown-item text-danger" href="../admin/">
+                                    <i class="bi bi-shield-check"></i> Painel Admin
+                                </a></li>
+                                <li><hr class="dropdown-divider"></li>
+                            <?php endif; ?>
+                            <li><a class="dropdown-item text-danger" href="../../components/Logout/">
+                                <i class="bi bi-box-arrow-right"></i> Sair
+                            </a></li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
         </div>
-    </div>
-</nav>
+    </nav>
 
     <div class="container mt-4">
         <!-- Botões de Toggle -->
@@ -325,19 +344,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_group'])) {
                                 <div class="col-md-6 mb-3">
                                     <div class="card chat-card h-100">
                                         <div class="card-body d-flex align-items-center">
-                                            <?php 
-                                            $friend_avatar_url = getProfileImageUrl($friend['image']);
-                                            if ($friend_avatar_url): 
-                                            ?>
-                                                <img src="<?php echo htmlspecialchars($friend_avatar_url); ?>" alt="Avatar" class="friend-avatar me-3" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                                                <div class="friend-avatar me-3 bg-secondary d-flex align-items-center justify-content-center" style="display: none;">
-                                                    <i class="bi bi-person text-white"></i>
-                                                </div>
-                                            <?php else: ?>
-                                                <div class="friend-avatar me-3 bg-secondary d-flex align-items-center justify-content-center">
-                                                    <i class="bi bi-person text-white"></i>
-                                                </div>
-                                            <?php endif; ?>
+                                            <!-- Usando ViewAvatar aqui -->
+                                            <?php renderViewAvatar($friend['id'], 'medium', 'friend-avatar me-3'); ?>
                                             <div class="flex-grow-1">
                                                 <h6 class="card-title mb-1"><?php echo htmlspecialchars($friend['name']); ?></h6>
                                                 <p class="card-text text-muted mb-2">@<?php echo htmlspecialchars($friend['username']); ?></p>
@@ -449,19 +457,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_group'])) {
                                                    name="selected_friends[]" 
                                                    value="<?php echo $friend['id']; ?>">
                                             <label class="form-check-label d-flex align-items-center w-100" for="friend_<?php echo $friend['id']; ?>">
-                                                <?php 
-                                                $modal_friend_avatar_url = getProfileImageUrl($friend['image']);
-                                                if ($modal_friend_avatar_url): 
-                                                ?>
-                                                    <img src="<?php echo htmlspecialchars($modal_friend_avatar_url); ?>" alt="Avatar" class="friend-avatar me-2" style="width: 30px; height: 30px;" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                                                    <div class="friend-avatar me-2 bg-secondary d-flex align-items-center justify-content-center" style="width: 30px; height: 30px; font-size: 0.8rem; display: none;">
-                                                        <i class="bi bi-person text-white"></i>
-                                                    </div>
-                                                <?php else: ?>
-                                                    <div class="friend-avatar me-2 bg-secondary d-flex align-items-center justify-content-center" style="width: 30px; height: 30px; font-size: 0.8rem;">
-                                                        <i class="bi bi-person text-white"></i>
-                                                    </div>
-                                                <?php endif; ?>
+                                                <!-- Usando ViewAvatar no modal também -->
+                                                <?php renderViewAvatar($friend['id'], 'small', 'me-2'); ?>
                                                 <div>
                                                     <div class="fw-medium"><?php echo htmlspecialchars($friend['name']); ?></div>
                                                     <small class="text-muted">@<?php echo htmlspecialchars($friend['username']); ?></small>
@@ -486,6 +483,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_group'])) {
             </div>
         </div>
     </div>
+
+    <!-- Incluir o modal do ViewAvatar -->
+    <?php includeViewAvatarModal(); ?>
 
     <script>
         // Expandir automaticamente as seções se houver conteúdo

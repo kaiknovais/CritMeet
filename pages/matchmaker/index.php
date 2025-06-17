@@ -9,16 +9,19 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
+
 $user_id = $_SESSION['user_id'];
 $is_admin = false;
+$user = [];
 
-// Verificar admin
-$query = "SELECT admin FROM users WHERE id = ?";
+// Buscar dados do usuário logado (incluindo admin)
+$query = "SELECT id, username, name, image, admin FROM users WHERE id = ?";
 $stmt = $mysqli->prepare($query);
 $stmt->bind_param("i", $user_id);
 $stmt->execute();
 $result = $stmt->get_result();
 if ($result && $row = $result->fetch_assoc()) {
+    $user = $row;
     $is_admin = $row['admin'] == 1;
 }
 $stmt->close();
@@ -385,6 +388,23 @@ $initial_match = $matchmaker->getNextMatch();
         .loading {
             text-align: center;
             padding: 2rem;
+        }
+        .profile-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid rgba(255,255,255,0.5);
+        }
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .username-text {
+            color: rgba(255,255,255,0.9);
+            font-weight: 500;
+            font-size: 0.9rem;
         }
     </style>
 </head>

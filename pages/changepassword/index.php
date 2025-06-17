@@ -23,6 +23,24 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
+// Função para exibir imagem do perfil
+function getProfileImageUrl($image_data) {
+    if (empty($image_data)) {
+        return 'default-avatar.png';
+    }
+    
+    // Verificar se é base64 (dados antigos)
+    if (preg_match('/^[a-zA-Z0-9\/\r\n+]*={0,2}$/', $image_data)) {
+        return 'data:image/jpeg;base64,' . $image_data;
+    } else {
+        // É um nome de arquivo
+        return '../../uploads/profiles/' . $image_data;
+    }
+}
+
+
+
+
 $user_id = $_SESSION['user_id'];
 
 // Variáveis para mensagens
@@ -102,6 +120,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error_message = $e->getMessage();
     }
 }
+
+
 ?>
 
 <!DOCTYPE html>
@@ -140,6 +160,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         .strength-weak { color: #dc3545; }
         .strength-medium { color: #ffc107; }
         .strength-strong { color: #198754; }
+    
+        .profile-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 2px solid rgba(255,255,255,0.5);
+        }
+        
+        .user-info {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        }
+    
+        .username-text {
+        color: rgba(255,255,255,0.9);
+        font-weight: 500;
+        font-size: 0.9rem;
+        }
     </style>
 </head>
 <body>
@@ -173,7 +213,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </ul>
         </div>
     </div>
-    <nav class="navbar navbar-expand-lg bg-body-tertiary" data-bs-theme="dark">
+<nav class="navbar navbar-expand-lg bg-body-tertiary" data-bs-theme="dark">
     <div class="container-fluid">
         <a class="navbar-brand" href="../homepage/">CritMeet</a>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent">

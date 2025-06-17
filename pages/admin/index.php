@@ -17,11 +17,62 @@ if ($user_id) {
     $stmt->close();
 }
 
+$user_id = $_SESSION['user_id'] ?? null;
+$is_admin = false;
+$user = null;
+
+// Buscar dados completos do usuário
+if ($user_id) {
+    $query = "SELECT username, name, image, admin FROM users WHERE id = ?";
+    $stmt = $mysqli->prepare($query);
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    if ($result && $row = $result->fetch_assoc()) {
+        $user = $row;
+        $is_admin = $row['admin'] == 1;
+    }
+    $stmt->close();
+}
+
 // Consulta para buscar todos os usuários
 $sql = "SELECT * FROM users";
 $result = $mysqli->query($sql);
-?>
 
+// Função para exibir imagem do perfil
+function getProfileImageUrl($image_data) {
+    if (empty($image_data)) {
+        return 'default-avatar.png';
+    }
+    
+    // Verificar se é base64 (dados antigos)
+    if (preg_match('/^[a-zA-Z0-9\/\r\n+]*={0,2}$/', $image_data)) {
+        return 'data:image/jpeg;base64,' . $image_data;
+    } else {
+        // É um nome de arquivo
+        return '../../uploads/profiles/' . $image_data;
+    }
+}
+?>
+<style>
+    .profile-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 2px solid rgba(255,255,255,0.5);
+    }
+    .user-info {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .username-text {
+        color: rgba(255,255,255,0.9);
+        font-weight: 500;
+        font-size: 0.9rem;
+    }
+</style>
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
