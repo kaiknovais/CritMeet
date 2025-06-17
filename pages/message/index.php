@@ -251,7 +251,28 @@ html, body {
     border-top: 1px solid #e9ecef;
 }
 
-/* Estilos dos avatares */
+/* Estilos dos avatares do navbar */
+.profile-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid rgba(255,255,255,0.5);
+}
+
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.username-text {
+    color: rgba(255,255,255,0.9);
+    font-weight: 500;
+    font-size: 0.9rem;
+}
+
+/* Estilos dos avatares do chat header */
 .friend-avatar {
     width: 40px;
     height: 40px;
@@ -325,6 +346,7 @@ html, body {
     object-fit: cover;
     flex-shrink: 0;
     border: 2px solid rgba(255,255,255,0.3);
+    cursor: pointer;
 }
 
 .message-avatar-default {
@@ -340,6 +362,7 @@ html, body {
     font-size: 14px;
     flex-shrink: 0;
     border: 2px solid rgba(255,255,255,0.3);
+    cursor: pointer;
 }
 
 .message.own .message-avatar,
@@ -412,6 +435,11 @@ html, body {
     background: #0056b3;
 }
 
+.message-button:disabled {
+    background: #6c757d;
+    cursor: not-allowed;
+}
+
 /* Scrollbar personalizada */
 .chat-container::-webkit-scrollbar {
     width: 8px;
@@ -440,6 +468,21 @@ html, body {
 
 .chat-header small {
     font-size: 0.75rem;
+}
+
+.back-button {
+    background: none;
+    border: none;
+    font-size: 1.2rem;
+    color: #007bff;
+    cursor: pointer;
+    padding: 5px;
+    border-radius: 50%;
+    transition: background-color 0.2s;
+}
+
+.back-button:hover {
+    background-color: rgba(0, 123, 255, 0.1);
 }
 
 /* Responsividade para mobile */
@@ -548,6 +591,11 @@ html, body {
     background: linear-gradient(to top, rgba(248,249,250,0.9), transparent);
     margin: 0 -15px -15px -15px;
     z-index: 1;
+}
+
+/* Estilo para loading */
+.sending {
+    opacity: 0.7;
 }
     </style>
 </head>
