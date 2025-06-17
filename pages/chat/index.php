@@ -1,7 +1,11 @@
 <?php
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../components/ViewAvatar/index.php';
-session_start();
+
+// Verificar se a sessão já foi iniciada antes de chamar session_start()
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 // Verifica se o usuário está autenticado
 $user_id = $_SESSION['user_id'] ?? null;
@@ -27,13 +31,33 @@ $stmt->close();
 
 // Função para obter URL da imagem do grupo
 function getGroupImageUrl($image_data) {
+    // Se não há dados de imagem, retorna null
     if (empty($image_data)) {
         return null;
     }
-    $file_path = '../../uploads/groups/' . $image_data;
-    if (file_exists($file_path)) {
-        return $file_path;
+    
+    // Limpar o nome do arquivo de caracteres especiais
+    $image_data = trim($image_data);
+    
+    // Construir o caminho absoluto usando __DIR__
+    $file_path = __DIR__ . '/../../uploads/groups/' . $image_data;
+    
+    // Debug: Verificar se o diretório existe
+    $uploads_dir = __DIR__ . '/../../uploads/groups/';
+    if (!is_dir($uploads_dir)) {
+        error_log("Diretório de uploads de grupos não existe: " . $uploads_dir);
+        return null;
     }
+    
+    // Verificar se o arquivo existe
+    if (file_exists($file_path) && is_file($file_path)) {
+        // Retornar o caminho relativo para o navegador
+        return '../../uploads/groups/' . $image_data;
+    }
+    
+    // Debug: Log quando arquivo não é encontrado
+    error_log("Imagem do grupo não encontrada: " . $file_path);
+    
     return null;
 }
 

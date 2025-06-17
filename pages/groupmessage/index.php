@@ -1,17 +1,26 @@
 <?php
 require_once __DIR__ . '/../../config.php';
-session_start();
+require_once __DIR__ . '/../../components/ViewAvatar/index.php';
 
+// Verificar se a sessão já foi iniciada antes de chamar session_start()
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+// Verifica se o usuário está autenticado
 $user_id = $_SESSION['user_id'] ?? null;
 $is_admin = false;
+$user = null;
 
+// Buscar dados completos do usuário
 if ($user_id) {
-    $query = "SELECT admin FROM users WHERE id = ?";
+    $query = "SELECT username, name, image, admin FROM users WHERE id = ?";
     $stmt = $mysqli->prepare($query);
     $stmt->bind_param("i", $user_id);
     $stmt->execute();
     $result = $stmt->get_result();
     if ($result && $row = $result->fetch_assoc()) {
+        $user = $row;
         $is_admin = $row['admin'] == 1;
     }
     $stmt->close();
@@ -50,12 +59,26 @@ function getProfileImageUrl($image_data) {
     }
 }
 
-
 function getGroupImageUrl($image_data) {
+    // Se não há dados de imagem, retorna null
     if (empty($image_data)) {
         return null;
     }
-    return '../../uploads/groups/' . $image_data;
+    
+    // Limpar o nome do arquivo de caracteres especiais
+    $image_data = trim($image_data);
+    
+    // Construir o caminho absoluto usando __DIR__
+    $file_path = __DIR__ . '/../../uploads/groups/' . $image_data;
+    
+    // Verificar se o arquivo existe
+    if (file_exists($file_path) && is_file($file_path)) {
+        // Retornar o caminho relativo para o navegador
+        return '../../uploads/groups/' . $image_data;
+    }
+    
+    // Se arquivo não existe, retorna null
+    return null;
 }
 
 // Verificar se o usuário é membro do grupo
@@ -82,130 +105,112 @@ $is_creator = ($creator_id == $user_id);
 $stmt_check->close();
 
 
-// Adicionar após a verificação de membros do grupo e antes do processamento de mensagens
 
+// Processar outras ações do grupo
 // Processar upload de imagem do grupo
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['group_image']) && ($user_role === 'admin' || $is_creator)) {
     $upload_dir = '../../uploads/groups/';
+    
+    // Debug: Log para verificar se está entrando na condição
+    error_log("Tentando fazer upload de imagem do grupo. Group ID: " . $group_id);
+    error_log("User role: " . $user_role . ", Is creator: " . ($is_creator ? 'true' : 'false'));
     
     if (!file_exists($upload_dir)) {
         mkdir($upload_dir, 0755, true);
     }
     
     $file = $_FILES['group_image'];
-    $allowed_types = ['image/jpeg', 'image/png', 'image/gif'];
     
-    if (in_array($file['type'], $allowed_types) && $file['size'] <= 5000000) {
-        $file_extension = pathinfo($file['name'], PATHINFO_EXTENSION);
-        $new_filename = 'group_' . $group_id . '_' . time() . '.' . $file_extension;
-        $upload_path = $upload_dir . $new_filename;
+    // Debug: Verificar detalhes do arquivo
+    error_log("Arquivo recebido - Nome: " . $file['name'] . ", Tipo: " . $file['type'] . ", Tamanho: " . $file['size']);
+    
+    // Adicionar WebP aos tipos permitidos
+    $allowed_types = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    
+    // Verificar se há erro no upload
+    if ($file['error'] !== UPLOAD_ERR_OK) {
+        error_log("Erro no upload: " . $file['error']);
+    } else if (in_array($file['type'], $allowed_types) && $file['size'] <= 5000000 && $file['size'] > 0) {
+        $file_extension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
         
-        if (move_uploaded_file($file['tmp_name'], $upload_path)) {
-            $sql_update_image = "UPDATE chats SET image = ? WHERE id = ?";
-            $stmt_update_image = $mysqli->prepare($sql_update_image);
-            $stmt_update_image->bind_param("si", $new_filename, $group_id);
-            $stmt_update_image->execute();
-            $stmt_update_image->close();
+        // Verificar se a extensão está nos formatos permitidos
+        $allowed_extensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+        if (in_array($file_extension, $allowed_extensions)) {
+            // Remover imagem anterior se existir
+            if (!empty($group_image)) {
+                $old_image_path = $upload_dir . $group_image;
+                if (file_exists($old_image_path)) {
+                    unlink($old_image_path);
+                }
+            }
             
-            // Atualizar a variável para refletir a mudança
-            $group_image = $new_filename;
+            $new_filename = 'group_' . $group_id . '_' . time() . '.' . $file_extension;
+            $upload_path = $upload_dir . $new_filename;
             
-            // Redirecionar para evitar resubmissão do formulário
-            header("Location: " . $_SERVER['REQUEST_URI']);
-            exit();
-        }
-    }
-}
-
-// Processar outras ações do grupo
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($user_role === 'admin' || $is_creator)) {
-    
-    // Atualizar nome do grupo
-    if (isset($_POST['update_group_name'])) {
-        $new_group_name = trim($_POST['group_name']);
-        if (!empty($new_group_name) && strlen($new_group_name) <= 100) {
-            $sql_update_name = "UPDATE chats SET name = ? WHERE id = ?";
-            $stmt_update = $mysqli->prepare($sql_update_name);
-            $stmt_update->bind_param("si", $new_group_name, $group_id);
-            if ($stmt_update->execute()) {
-                $group_name = $new_group_name;
+            error_log("Tentando mover arquivo para: " . $upload_path);
+            
+            if (move_uploaded_file($file['tmp_name'], $upload_path)) {
+                error_log("Arquivo movido com sucesso. Atualizando banco de dados...");
+                
+                $sql_update_image = "UPDATE chats SET image = ? WHERE id = ?";
+                $stmt_update_image = $mysqli->prepare($sql_update_image);
+                
+                if ($stmt_update_image) {
+                    $stmt_update_image->bind_param("si", $new_filename, $group_id);
+                    
+                    if ($stmt_update_image->execute()) {
+                        $affected_rows = $stmt_update_image->affected_rows;
+                        error_log("Update executado. Linhas afetadas: " . $affected_rows);
+                        
+                        if ($affected_rows > 0) {
+                            // Atualizar a variável para refletir a mudança
+                            $group_image = $new_filename;
+                            error_log("Imagem atualizada com sucesso: " . $new_filename);
+                            
+                            // Definir uma mensagem de sucesso na sessão
+                            $_SESSION['upload_success'] = "Imagem do grupo atualizada com sucesso!";
+                        } else {
+                            error_log("Nenhuma linha foi afetada no update. Verificar se o group_id existe: " . $group_id);
+                            $_SESSION['upload_error'] = "Erro: Grupo não encontrado.";
+                        }
+                    } else {
+                        error_log("Erro ao executar update: " . $stmt_update_image->error);
+                        $_SESSION['upload_error'] = "Erro ao atualizar banco de dados: " . $stmt_update_image->error;
+                    }
+                    $stmt_update_image->close();
+                } else {
+                    error_log("Erro ao preparar statement: " . $mysqli->error);
+                    $_SESSION['upload_error'] = "Erro na preparação da consulta: " . $mysqli->error;
+                }
+                
                 // Redirecionar para evitar resubmissão do formulário
                 header("Location: " . $_SERVER['REQUEST_URI']);
                 exit();
+            } else {
+                error_log("Falha ao mover o arquivo uploadado");
+                $_SESSION['upload_error'] = "Falha ao salvar o arquivo.";
             }
-            $stmt_update->close();
+        } else {
+            error_log("Extensão não permitida: " . $file_extension);
+            $_SESSION['upload_error'] = "Formato de arquivo não permitido.";
+        }
+    } else {
+        if (!in_array($file['type'], $allowed_types)) {
+            error_log("Tipo MIME não permitido: " . $file['type']);
+            $_SESSION['upload_error'] = "Tipo de arquivo não permitido: " . $file['type'];
+        } else if ($file['size'] > 5000000) {
+            error_log("Arquivo muito grande: " . $file['size']);
+            $_SESSION['upload_error'] = "Arquivo muito grande. Máximo 5MB.";
+        } else if ($file['size'] <= 0) {
+            error_log("Arquivo vazio");
+            $_SESSION['upload_error'] = "Arquivo está vazio.";
         }
     }
     
-    // Adicionar membro
-    if (isset($_POST['add_member'])) {
-        $new_member_username = trim($_POST['new_member_username']);
-        
-        $sql_check_user = "SELECT id FROM users WHERE username = ?";
-        $stmt_check_user = $mysqli->prepare($sql_check_user);
-        $stmt_check_user->bind_param("s", $new_member_username);
-        $stmt_check_user->execute();
-        $stmt_check_user->bind_result($new_member_id);
-        $stmt_check_user->fetch();
-        $stmt_check_user->close();
-        
-        if ($new_member_id) {
-            $sql_check_member = "SELECT id FROM chat_members WHERE chat_id = ? AND user_id = ?";
-            $stmt_check_member = $mysqli->prepare($sql_check_member);
-            $stmt_check_member->bind_param("ii", $group_id, $new_member_id);
-            $stmt_check_member->execute();
-            $stmt_check_member->store_result();
-            
-            if ($stmt_check_member->num_rows == 0) {
-                $sql_add_member = "INSERT INTO chat_members (chat_id, user_id, role) VALUES (?, ?, 'member')";
-                $stmt_add_member = $mysqli->prepare($sql_add_member);
-                $stmt_add_member->bind_param("ii", $group_id, $new_member_id);
-                
-                if ($stmt_add_member->execute()) {
-                    header("Location: " . $_SERVER['REQUEST_URI']);
-                    exit();
-                }
-                $stmt_add_member->close();
-            }
-            $stmt_check_member->close();
-        }
-    }
-    
-    // Promover/rebaixar membro
-    if (isset($_POST['promote_member'])) {
-        $member_id = intval($_POST['member_id']);
-        $sql_promote = "UPDATE chat_members SET role = 'admin' WHERE chat_id = ? AND user_id = ? AND user_id != ?";
-        $stmt_promote = $mysqli->prepare($sql_promote);
-        $stmt_promote->bind_param("iii", $group_id, $member_id, $creator_id);
-        $stmt_promote->execute();
-        $stmt_promote->close();
+    // Redirecionar em caso de erro também
+    if (isset($_SESSION['upload_error'])) {
         header("Location: " . $_SERVER['REQUEST_URI']);
         exit();
-    }
-    
-    if (isset($_POST['demote_member'])) {
-        $member_id = intval($_POST['member_id']);
-        $sql_demote = "UPDATE chat_members SET role = 'member' WHERE chat_id = ? AND user_id = ? AND user_id != ?";
-        $stmt_demote = $mysqli->prepare($sql_demote);
-        $stmt_demote->bind_param("iii", $group_id, $member_id, $creator_id);
-        $stmt_demote->execute();
-        $stmt_demote->close();
-        header("Location: " . $_SERVER['REQUEST_URI']);
-        exit();
-    }
-    
-    // Remover membro
-    if (isset($_POST['remove_member'])) {
-        $member_id = intval($_POST['member_id']);
-        if ($member_id != $creator_id) {
-            $sql_remove = "DELETE FROM chat_members WHERE chat_id = ? AND user_id = ?";
-            $stmt_remove = $mysqli->prepare($sql_remove);
-            $stmt_remove->bind_param("ii", $group_id, $member_id);
-            $stmt_remove->execute();
-            $stmt_remove->close();
-            header("Location: " . $_SERVER['REQUEST_URI']);
-            exit();
-        }
     }
 }
 
@@ -294,6 +299,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_messages') {
     $messages = [];
     while ($row = $result_messages->fetch_assoc()) {
         $messages[] = [
+            'sender_id' => $row['sender_id'],
             'username' => $row['username'],
             'content' => $row['content'],
             'timestamp' => $row['timestamp'],
@@ -449,6 +455,26 @@ html, body {
     flex-shrink: 0;
 }
 
+.profile-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid rgba(255,255,255,0.5);
+}
+
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.username-text {
+    color: rgba(255,255,255,0.9);
+    font-weight: 500;
+    font-size: 0.9rem;
+}
+
 /* Estilos das mensagens */
 .message {
     margin-bottom: 15px;
@@ -498,6 +524,7 @@ html, body {
     object-fit: cover;
     flex-shrink: 0;
     border: 2px solid rgba(255,255,255,0.3);
+    cursor: pointer;
 }
 
 .message-avatar-default {
@@ -513,6 +540,7 @@ html, body {
     font-size: 14px;
     flex-shrink: 0;
     border: 2px solid rgba(255,255,255,0.3);
+    cursor: pointer;
 }
 
 .message.own .message-avatar,
@@ -768,6 +796,7 @@ html, body {
         padding: 6px;
     }
 }
+
 .member-actions {
     display: flex;
     gap: 5px;
@@ -901,32 +930,36 @@ html, body {
             <div class="chat-wrapper">
                 <!-- Cabeçalho do chat -->
                 <div class="chat-header">
-                    <div class="chat-header-left">
-                    <div class="group-avatar">
-    <?php 
-    if (!empty($group_image) && file_exists('../../uploads/groups/' . $group_image)): 
-    ?>
-        <img src="../../uploads/groups/<?php echo htmlspecialchars($group_image); ?>" alt="Grupo" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">
-    <?php else: ?>
-        <i class="bi bi-people-fill"></i>
-    <?php endif; ?>
+    <div class="chat-header-left">
+        <div class="group-avatar">
+            <?php 
+            $group_image_url = getGroupImageUrl($group_image);
+            if ($group_image_url): 
+            ?>
+                <img src="<?php echo htmlspecialchars($group_image_url); ?>" 
+                     alt="Grupo" 
+                     style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;"
+                     onerror="this.style.display='none'; this.parentElement.innerHTML='<i class=\'bi bi-people-fill\'></i>';">
+            <?php else: ?>
+                <i class="bi bi-people-fill"></i>
+            <?php endif; ?>
+        </div>
+        <div>
+            <h5><?php echo htmlspecialchars($group_name ?: 'Chat em Grupo'); ?></h5>
+            <small class="text-muted"><?php echo $member_count; ?> membros</small>
+        </div>
+    </div>
+    <div class="chat-header-right">
+        <button class="group-action-btn" type="button" data-bs-toggle="modal" data-bs-target="#membersModal" title="Ver membros">
+            <i class="bi bi-people"></i>
+        </button>
+        <?php if ($user_role === 'admin' || $is_creator): ?>
+            <button class="group-action-btn" type="button" data-bs-toggle="modal" data-bs-target="#settingsModal" title="Configurações do grupo">
+                <i class="bi bi-gear"></i>
+            </button>
+        <?php endif; ?>
+    </div>
 </div>
-                        <div>
-                            <h5><?php echo htmlspecialchars($group_name ?: 'Chat em Grupo'); ?></h5>
-                            <small class="text-muted"><?php echo $member_count; ?> membros</small>
-                        </div>
-                    </div>
-                    <div class="chat-header-right">
-                        <button class="group-action-btn" type="button" data-bs-toggle="modal" data-bs-target="#membersModal" title="Ver membros">
-                            <i class="bi bi-people"></i>
-                        </button>
-                        <?php if ($user_role === 'admin' || $is_creator): ?>
-<button class="group-action-btn" type="button" data-bs-toggle="modal" data-bs-target="#settingsModal" title="Configurações do grupo">
-    <i class="bi bi-gear"></i>
-</button>
-<?php endif; ?>
-                    </div>
-                </div>
 
                 <!-- Container das mensagens com rolagem -->
                 <div id="messages-container" class="chat-container">

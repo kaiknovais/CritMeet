@@ -2,27 +2,33 @@
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../components/ViewAvatar/index.php';
 
-// Verificar se a sessão já não foi iniciada
+// Verificar se a sessão já está ativa antes de iniciar
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+// Verifica se o usuário está autenticado
 $user_id = $_SESSION['user_id'] ?? null;
 $is_admin = false;
 $user = null;
 
-if ($user_id) {
-    $query = "SELECT username, name, image, admin FROM users WHERE id = ?";
-    $stmt = $mysqli->prepare($query);
-    $stmt->bind_param("i", $user_id);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    if ($result && $row = $result->fetch_assoc()) {
-        $user = $row;
-        $is_admin = $row['admin'] == 1;
-    }
-    $stmt->close();
+if (!$user_id) {
+    echo "<script>alert('Usuário não autenticado.'); window.location.href='../../pages/login/';</script>";
+    exit();
 }
+
+// Resto do código permanece igual...
+// Verificar se o usuário é administrador e buscar dados do usuário
+$query = "SELECT username, name, image, admin FROM users WHERE id = ?";
+$stmt = $mysqli->prepare($query);
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$result = $stmt->get_result();
+if ($result && $row = $result->fetch_assoc()) {
+    $user = $row;
+    $is_admin = $row['admin'] == 1;
+}
+$stmt->close();
 
 // Função para exibir imagem do perfil
 function getProfileImageUrl($image_data) {
