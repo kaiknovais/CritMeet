@@ -331,19 +331,41 @@ function getProfileImageUrl($image_data) {
         <div class="collapse navbar-collapse" id="navbarSupportedContent">
             <ul class="navbar-nav me-auto mb-2 mb-lg-0">
                 <li class="nav-item"><a class="nav-link" href="../homepage/">Home</a></li>
-                <li class="nav-item"><a class="nav-link" href="../Profile/">Meu Perfil</a></li>
+                <li class="nav-item"><a class="nav-link" href="../matchmaker/">Matchmaker</a></li>
                 <li class="nav-item"><a class="nav-link" href="../rpg_info">RPG</a></li>
+                <li class="nav-item"><a class="nav-link" href="../friends">Conexões</a></li>
+                <li class="nav-item"><a class="nav-link" href="../chat">Chat</a></li>
+            </ul>
+            
+            <!-- Seção do usuário -->
+            <ul class="navbar-nav">
                 <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Mais...</a>
-                    <ul class="dropdown-menu">
-                        <li><a class="dropdown-item" href="../settings/">Configurações</a></li>
-                        <li><a class="dropdown-item" href="../friends/">Conexões</a></li>
-                        <li><a class="dropdown-item" href="../chat/">Chat</a></li>
+                    <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" data-bs-toggle="dropdown">
+                        <div class="user-info">
+                            <img src="<?php echo getProfileImageUrl($user['image'] ?? ''); ?>" 
+                                 alt="Avatar" 
+                                 class="profile-avatar" 
+                                 onerror="this.src='default-avatar.png'" />
+                            <span class="username-text"><?php echo htmlspecialchars($user['username'] ?? 'Usuário'); ?></span>
+                        </div>
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a class="dropdown-item" href="../Profile/">
+                            <i class="bi bi-person-circle"></i> Meu Perfil
+                        </a></li>
+                        <li><a class="dropdown-item active" href="../settings/">
+                            <i class="bi bi-gear"></i> Configurações
+                        </a></li>
                         <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item" href="../../components/Logout/">Logout</a></li>
                         <?php if ($is_admin): ?>
-                            <li><a class="dropdown-item text-danger" href="../admin/">Lista de Usuários</a></li>
+                            <li><a class="dropdown-item text-danger" href="../admin/">
+                                <i class="bi bi-shield-check"></i> Painel Admin
+                            </a></li>
+                            <li><hr class="dropdown-divider"></li>
                         <?php endif; ?>
+                        <li><a class="dropdown-item text-danger" href="../../components/Logout/">
+                            <i class="bi bi-box-arrow-right"></i> Sair
+                        </a></li>
                     </ul>
                 </li>
             </ul>

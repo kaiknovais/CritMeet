@@ -163,19 +163,54 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 <nav class="navbar navbar-expand-lg bg-body-tertiary" data-bs-theme="dark">
     <div class="container-fluid">
-        <a class="navbar-brand" href="#">CritMeet</a>
+        <a class="navbar-brand" href="../homepage/">CritMeet</a>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent">
             <span class="navbar-toggler-icon"></span>
         </button>
         <div class="collapse navbar-collapse" id="navbarSupportedContent">
             <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                <li class="nav-item"><a class="nav-link" href="../login/">Login</a></li>
-                <li class="nav-item"><a class="nav-link active" href="../register/">Registrar</a></li>
+                <li class="nav-item"><a class="nav-link" href="../homepage/">Home</a></li>
+                <li class="nav-item"><a class="nav-link" href="../matchmaker/">Matchmaker</a></li>
+                <li class="nav-item"><a class="nav-link" href="../rpg_info">RPG</a></li>
+                <li class="nav-item"><a class="nav-link" href="../friends">Conexões</a></li>
+                <li class="nav-item"><a class="nav-link" href="../chat">Chat</a></li>
+            </ul>
+            
+            <!-- Seção do usuário -->
+            <ul class="navbar-nav">
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" data-bs-toggle="dropdown">
+                        <div class="user-info">
+                            <img src="<?php echo getProfileImageUrl($user['image'] ?? ''); ?>" 
+                                 alt="Avatar" 
+                                 class="profile-avatar" 
+                                 onerror="this.src='default-avatar.png'" />
+                            <span class="username-text"><?php echo htmlspecialchars($user['username'] ?? 'Usuário'); ?></span>
+                        </div>
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a class="dropdown-item" href="../Profile/">
+                            <i class="bi bi-person-circle"></i> Meu Perfil
+                        </a></li>
+                        <li><a class="dropdown-item active" href="../settings/">
+                            <i class="bi bi-gear"></i> Configurações
+                        </a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <?php if ($is_admin): ?>
+                            <li><a class="dropdown-item text-danger" href="../admin/">
+                                <i class="bi bi-shield-check"></i> Painel Admin
+                            </a></li>
+                            <li><hr class="dropdown-divider"></li>
+                        <?php endif; ?>
+                        <li><a class="dropdown-item text-danger" href="../../components/Logout/">
+                            <i class="bi bi-box-arrow-right"></i> Sair
+                        </a></li>
+                    </ul>
+                </li>
             </ul>
         </div>
     </div>
 </nav>
-
 <div class="container">
     <div class="row justify-content-center">
         <div class="col-lg-8">
