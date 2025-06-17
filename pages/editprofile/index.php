@@ -205,6 +205,25 @@ function getProfileImageUrl($image_data) {
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
     <style>
+        /* Estilos da navbar */
+        .profile-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid rgba(255,255,255,0.5);
+        }
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .username-text {
+            color: rgba(255,255,255,0.9);
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+        
         .profile-container {
             max-width: 800px;
             margin: 2rem auto;
@@ -319,9 +338,9 @@ function getProfileImageUrl($image_data) {
     </style>
 </head>
 <body>
-<?php include 'header.php'; ?>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
 
+<!-- Navbar Corrigida -->
 <nav class="navbar navbar-expand-lg bg-body-tertiary" data-bs-theme="dark">
     <div class="container-fluid">
         <a class="navbar-brand" href="../homepage/">CritMeet</a>
@@ -407,7 +426,7 @@ function getProfileImageUrl($image_data) {
                         <h5 class="mb-0"><i class="bi bi-pencil-square"></i> Editar Informações do Perfil</h5>
                     </div>
                     <div class="card-body">
-                        <form method="POST" action="" enctype="multipart/form-data">
+                        <form method="POST" action="" enctype="multipart/form-data" id="editForm">
                             <table class="table table-striped profile-table mb-0">
                                 <tr>
                                     <th><i class="bi bi-camera-fill"></i> Imagem de Perfil:</th>
@@ -514,11 +533,10 @@ document.getElementById('imageInput').addEventListener('change', function(event)
         reader.readAsDataURL(file);
     }
 });
-
-// Adicionar ID ao formulário para o botão submit funcionar
-document.querySelector('form').id = 'editForm';
 </script>
 
-<?php include 'footer.php'; ?>
+<footer>
+    <p>&copy; <?php echo date("Y"); ?> リンゴジュース</p>
+</footer>
 </body>
 </html>

@@ -4,15 +4,18 @@ session_start();
 
 $user_id = $_SESSION['user_id'] ?? null;
 $is_admin = false;
+$user = null;
 
+// Verifica no banco de dados se o usuário é admin e busca dados do usuário
 if ($user_id) {
-    $query = "SELECT admin FROM users WHERE id = ?";
+    $query = "SELECT username, name, image, admin FROM users WHERE id = ?";
     $stmt = $mysqli->prepare($query);
     $stmt->bind_param("i", $user_id);
     $stmt->execute();
     $result = $stmt->get_result();
     if ($result && $row = $result->fetch_assoc()) {
-        $is_admin = $row['admin'] == 1; // Define como true se o usuário for admin
+        $user = $row;
+        $is_admin = $row['admin'] == 1;
     }
     $stmt->close();
 }
@@ -37,11 +40,6 @@ function getProfileImageUrl($image_data) {
         return '../../uploads/profiles/' . $image_data;
     }
 }
-
-
-
-
-$user_id = $_SESSION['user_id'];
 
 // Variáveis para mensagens
 $success_message = '';
@@ -81,15 +79,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             throw new Exception("Usuário não encontrado.");
         }
 
-        $user = $result->fetch_assoc();
+        $user_data = $result->fetch_assoc();
 
         // Verificar se a senha atual fornecida é válida (suporta hash e texto plano)
         $password_valid = false;
         
-        if (password_verify($current_password, $user['password'])) {
+        if (password_verify($current_password, $user_data['password'])) {
             // Senha com hash - método correto
             $password_valid = true;
-        } elseif ($user['password'] === $current_password) {
+        } elseif ($user_data['password'] === $current_password) {
             // Senha em texto plano (para compatibilidade com dados antigos)
             $password_valid = true;
         }
@@ -120,8 +118,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error_message = $e->getMessage();
     }
 }
-
-
 ?>
 
 <!DOCTYPE html>
@@ -129,202 +125,236 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Alterar Senha</title>
-    <link rel="stylesheet" href="../../../assets/mobile.css" media="screen and (max-width: 600px)">
-    <link rel="stylesheet" href="../../../assets/desktop.css" media="screen and (min-width: 601px)">
+    <title>Alterar Senha - CritMeet</title>
+    <link rel="stylesheet" href="../../assets/mobile.css" media="screen and (max-width: 600px)">
+    <link rel="stylesheet" href="../../assets/desktop.css" media="screen and (min-width: 601px)">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
     <style>
+        .profile-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid rgba(255,255,255,0.5);
+        }
+        
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .username-text {
+            color: rgba(255,255,255,0.9);
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+        
         .password-mismatch {
             color: #dc3545;
             font-size: 0.875rem;
             margin-top: 0.25rem;
             display: none;
         }
+        
         .password-match {
             color: #198754;
             font-size: 0.875rem;
             margin-top: 0.25rem;
             display: none;
         }
+        
         .form-control.is-invalid {
             border-color: #dc3545;
         }
+        
         .form-control.is-valid {
             border-color: #198754;
         }
+        
         .password-strength {
             font-size: 0.875rem;
             margin-top: 0.25rem;
         }
+        
         .strength-weak { color: #dc3545; }
         .strength-medium { color: #ffc107; }
         .strength-strong { color: #198754; }
-    
-        .profile-avatar {
-        width: 40px;
-        height: 40px;
-        border-radius: 50%;
-        object-fit: cover;
-        border: 2px solid rgba(255,255,255,0.5);
+        
+        .card-header {
+            background: linear-gradient(135deg, #007bff, #0056b3);
+            border-bottom: none;
         }
         
-        .user-info {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
+        .btn-primary {
+            background: linear-gradient(135deg, #007bff, #0056b3);
+            border: none;
+            transition: all 0.3s ease;
         }
-    
-        .username-text {
-        color: rgba(255,255,255,0.9);
-        font-weight: 500;
-        font-size: 0.9rem;
+        
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #0056b3, #004085);
+            transform: translateY(-1px);
+        }
+        
+        .main-content {
+            min-height: calc(100vh - 200px);
+            padding: 2rem 0;
+        }
+        
+        .card {
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            border: none;
+            border-radius: 12px;
+        }
+        
+        .alert {
+            border-radius: 8px;
+            border: none;
         }
     </style>
 </head>
 <body>
     <?php include 'header.php'; ?>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+    
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
+    <!-- Navbar -->
     <nav class="navbar navbar-expand-lg bg-body-tertiary" data-bs-theme="dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="../homepage/">CritMeet</a>
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse" id="navbarSupportedContent">
-            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                <li class="nav-item"><a class="nav-link " href="../homepage/">Home</a></li>
-                <li class="nav-item"><a class="nav-link" href="../Profile/">Meu Perfil</a></li>
-                <li class="nav-item"><a class="nav-link active" href="../rpg_info">RPG</a></li>
-                <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Mais...</a>
-                    <ul class="dropdown-menu">
-                        <li><a class="dropdown-item" href="../settings/">Configurações</a></li>
-                        <li><a class="dropdown-item" href="../friends/">Conexões</a></li>
-                        <li><a class="dropdown-item" href="../chat/">Chat</a></li>
-                        <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item" href="../../components/Logout/">Logout</a></li>
-                        <?php if ($is_admin): ?>
-                            <li><a class="dropdown-item text-danger" href="../admin/">Lista de Usuários</a></li>
-                        <?php endif; ?>
-                    </ul>
-                </li>
-            </ul>
-        </div>
-    </div>
-<nav class="navbar navbar-expand-lg bg-body-tertiary" data-bs-theme="dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="../homepage/">CritMeet</a>
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse" id="navbarSupportedContent">
-            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                <li class="nav-item"><a class="nav-link" href="../homepage/">Home</a></li>
-                <li class="nav-item"><a class="nav-link" href="../matchmaker/">Matchmaker</a></li>
-                <li class="nav-item"><a class="nav-link" href="../rpg_info">RPG</a></li>
-                <li class="nav-item"><a class="nav-link" href="../friends">Conexões</a></li>
-                <li class="nav-item"><a class="nav-link" href="../chat">Chat</a></li>
-            </ul>
-            
-            <!-- Seção do usuário -->
-            <ul class="navbar-nav">
-                <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" data-bs-toggle="dropdown">
-                        <div class="user-info">
-                            <img src="<?php echo getProfileImageUrl($user['image'] ?? ''); ?>" 
-                                 alt="Avatar" 
-                                 class="profile-avatar" 
-                                 onerror="this.src='default-avatar.png'" />
-                            <span class="username-text"><?php echo htmlspecialchars($user['username'] ?? 'Usuário'); ?></span>
-                        </div>
-                    </a>
-                    <ul class="dropdown-menu dropdown-menu-end">
-                        <li><a class="dropdown-item" href="../Profile/">
-                            <i class="bi bi-person-circle"></i> Meu Perfil
-                        </a></li>
-                        <li><a class="dropdown-item active" href="../settings/">
-                            <i class="bi bi-gear"></i> Configurações
-                        </a></li>
-                        <li><hr class="dropdown-divider"></li>
-                        <?php if ($is_admin): ?>
-                            <li><a class="dropdown-item text-danger" href="../admin/">
-                                <i class="bi bi-shield-check"></i> Painel Admin
+        <div class="container-fluid">
+            <a class="navbar-brand" href="../homepage/">CritMeet</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarSupportedContent">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                    <li class="nav-item"><a class="nav-link" href="../homepage/">Home</a></li>
+                    <li class="nav-item"><a class="nav-link" href="../matchmaker/">Matchmaker</a></li>
+                    <li class="nav-item"><a class="nav-link" href="../rpg_info">RPG</a></li>
+                    <li class="nav-item"><a class="nav-link" href="../friends">Conexões</a></li>
+                    <li class="nav-item"><a class="nav-link" href="../chat">Chat</a></li>
+                </ul>
+                
+                <!-- Seção do usuário -->
+                <ul class="navbar-nav">
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" data-bs-toggle="dropdown">
+                            <div class="user-info">
+                                <img src="<?php echo getProfileImageUrl($user['image'] ?? ''); ?>" 
+                                     alt="Avatar" 
+                                     class="profile-avatar" 
+                                     onerror="this.src='default-avatar.png'" />
+                                <span class="username-text"><?php echo htmlspecialchars($user['username'] ?? 'Usuário'); ?></span>
+                            </div>
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item" href="../Profile/">
+                                <i class="bi bi-person-circle"></i> Meu Perfil
+                            </a></li>
+                            <li><a class="dropdown-item active" href="../settings/">
+                                <i class="bi bi-gear"></i> Configurações
                             </a></li>
                             <li><hr class="dropdown-divider"></li>
-                        <?php endif; ?>
-                        <li><a class="dropdown-item text-danger" href="../../components/Logout/">
-                            <i class="bi bi-box-arrow-right"></i> Sair
-                        </a></li>
-                    </ul>
-                </li>
-            </ul>
+                            <?php if ($is_admin): ?>
+                                <li><a class="dropdown-item text-danger" href="../admin/">
+                                    <i class="bi bi-shield-check"></i> Painel Admin
+                                </a></li>
+                                <li><hr class="dropdown-divider"></li>
+                            <?php endif; ?>
+                            <li><a class="dropdown-item text-danger" href="../../components/Logout/">
+                                <i class="bi bi-box-arrow-right"></i> Sair
+                            </a></li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
         </div>
-    </div>
-</nav>
-    <div class="container mt-5">
-        <div class="row justify-content-center">
-            <div class="col-lg-6">
-                <div class="card">
-                    <div class="card-header bg-primary text-white">
-                        <h4 class="mb-0"><i class="bi bi-shield-lock"></i> Alterar Senha</h4>
-                    </div>
-                    <div class="card-body">
-                        
-                        <?php if (!empty($error_message)): ?>
-                            <div class="alert alert-danger d-flex align-items-center">
-                                <i class="bi bi-exclamation-triangle-fill me-2"></i>
-                                <div><?= htmlspecialchars($error_message) ?></div>
-                            </div>
-                        <?php endif; ?>
+    </nav>
 
-                        <?php if (!empty($success_message)): ?>
-                            <div class="alert alert-success d-flex align-items-center">
-                                <i class="bi bi-check-circle-fill me-2"></i>
-                                <div><?= htmlspecialchars($success_message) ?></div>
-                            </div>
-                        <?php endif; ?>
-
-                        <form method="POST" action="" id="changePasswordForm">
-                            <div class="mb-3">
-                                <label for="current_password" class="form-label">
-                                    <i class="bi bi-lock"></i> Senha Atual
-                                </label>
-                                <input type="password" class="form-control" id="current_password" name="current_password" required>
-                            </div>
-
-                            <div class="mb-3">
-                                <label for="new_password" class="form-label">
-                                    <i class="bi bi-lock-fill"></i> Nova Senha
-                                </label>
-                                <input type="password" class="form-control" id="new_password" name="new_password" required>
-                                <div class="password-strength" id="password-strength"></div>
-                                <div class="form-text">A senha deve ter pelo menos 6 caracteres.</div>
-                            </div>
-
-                            <div class="mb-3">
-                                <label for="confirm_password" class="form-label">
-                                    <i class="bi bi-shield-check"></i> Confirmar Nova Senha
-                                </label>
-                                <input type="password" class="form-control" id="confirm_password" name="confirm_password" required>
-                                <div class="password-mismatch" id="password-mismatch">
-                                    <i class="bi bi-exclamation-triangle"></i> As senhas não coincidem
+    <!-- Conteúdo Principal -->
+    <div class="main-content">
+        <div class="container">
+            <div class="row justify-content-center">
+                <div class="col-lg-6 col-md-8">
+                    <div class="card">
+                        <div class="card-header text-white">
+                            <h4 class="mb-0 text-center">
+                                <i class="bi bi-shield-lock me-2"></i>Alterar Senha
+                            </h4>
+                        </div>
+                        <div class="card-body p-4">
+                            
+                            <?php if (!empty($error_message)): ?>
+                                <div class="alert alert-danger d-flex align-items-center mb-4">
+                                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                                    <div><?= htmlspecialchars($error_message) ?></div>
                                 </div>
-                                <div class="password-match" id="password-match">
-                                    <i class="bi bi-check-circle"></i> As senhas coincidem
-                                </div>
-                            </div>
+                            <?php endif; ?>
 
-                            <div class="d-grid gap-2">
-                                <button type="submit" class="btn btn-primary btn-lg">
-                                    <i class="bi bi-shield-check"></i> Alterar Senha
-                                </button>
-                                <a href="../settings/" class="btn btn-secondary">
-                                    <i class="bi bi-arrow-left"></i> Voltar às Configurações
-                                </a>
-                            </div>
-                        </form>
+                            <?php if (!empty($success_message)): ?>
+                                <div class="alert alert-success d-flex align-items-center mb-4">
+                                    <i class="bi bi-check-circle-fill me-2"></i>
+                                    <div><?= htmlspecialchars($success_message) ?></div>
+                                </div>
+                            <?php endif; ?>
+
+                            <form method="POST" action="" id="changePasswordForm">
+                                <div class="mb-3">
+                                    <label for="current_password" class="form-label">
+                                        <i class="bi bi-lock me-1"></i>Senha Atual
+                                    </label>
+                                    <input type="password" 
+                                           class="form-control" 
+                                           id="current_password" 
+                                           name="current_password" 
+                                           placeholder="Digite sua senha atual"
+                                           required>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="new_password" class="form-label">
+                                        <i class="bi bi-lock-fill me-1"></i>Nova Senha
+                                    </label>
+                                    <input type="password" 
+                                           class="form-control" 
+                                           id="new_password" 
+                                           name="new_password" 
+                                           placeholder="Digite sua nova senha"
+                                           required>
+                                    <div class="password-strength" id="password-strength"></div>
+                                    <div class="form-text">A senha deve ter pelo menos 6 caracteres.</div>
+                                </div>
+
+                                <div class="mb-4">
+                                    <label for="confirm_password" class="form-label">
+                                        <i class="bi bi-shield-check me-1"></i>Confirmar Nova Senha
+                                    </label>
+                                    <input type="password" 
+                                           class="form-control" 
+                                           id="confirm_password" 
+                                           name="confirm_password" 
+                                           placeholder="Confirme sua nova senha"
+                                           required>
+                                    <div class="password-mismatch" id="password-mismatch">
+                                        <i class="bi bi-exclamation-triangle me-1"></i>As senhas não coincidem
+                                    </div>
+                                    <div class="password-match" id="password-match">
+                                        <i class="bi bi-check-circle me-1"></i>As senhas coincidem
+                                    </div>
+                                </div>
+
+                                <div class="d-grid gap-2">
+                                    <button type="submit" class="btn btn-primary btn-lg">
+                                        <i class="bi bi-shield-check me-2"></i>Alterar Senha
+                                    </button>
+                                    <a href="../settings/" class="btn btn-outline-secondary">
+                                        <i class="bi bi-arrow-left me-2"></i>Voltar às Configurações
+                                    </a>
+                                </div>
+                            </form>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -354,21 +384,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (/[^A-Za-z0-9]/.test(password)) strength++;
         
         if (password.length < 6) {
-            strengthDiv.innerHTML = '<i class="bi bi-exclamation-triangle"></i> Muito curta (mínimo 6 caracteres)';
+            strengthDiv.innerHTML = '<i class="bi bi-exclamation-triangle me-1"></i>Muito curta (mínimo 6 caracteres)';
             strengthDiv.className = 'password-strength strength-weak';
             newPasswordInput.classList.add('is-invalid');
             newPasswordInput.classList.remove('is-valid');
         } else if (strength < 3) {
-            strengthDiv.innerHTML = '<i class="bi bi-shield-exclamation"></i> Senha fraca';
+            strengthDiv.innerHTML = '<i class="bi bi-shield-exclamation me-1"></i>Senha fraca';
             strengthDiv.className = 'password-strength strength-weak';
             newPasswordInput.classList.add('is-invalid');
             newPasswordInput.classList.remove('is-valid');
         } else if (strength < 5) {
-            strengthDiv.innerHTML = '<i class="bi bi-shield-check"></i> Senha média';
+            strengthDiv.innerHTML = '<i class="bi bi-shield-check me-1"></i>Senha média';
             strengthDiv.className = 'password-strength strength-medium';
             newPasswordInput.classList.remove('is-invalid', 'is-valid');
         } else {
-            strengthDiv.innerHTML = '<i class="bi bi-shield-fill-check"></i> Senha forte';
+            strengthDiv.innerHTML = '<i class="bi bi-shield-fill-check me-1"></i>Senha forte';
             strengthDiv.className = 'password-strength strength-strong';
             newPasswordInput.classList.add('is-valid');
             newPasswordInput.classList.remove('is-invalid');
