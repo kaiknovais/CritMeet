@@ -14,9 +14,8 @@ class RecentMessages {
         
         $recent_messages = [];
         
-        // Query para buscar a mensagem mais recente de cada chat onde o usuário não foi o remetente
-        // e que seja mais nova que a última vez que o usuário visualizou o chat
-        $sql_messages = "SELECT 
+        // Query simplificada e otimizada para evitar subqueries problemáticas
+        $sql_messages = "SELECT DISTINCT
                             m.content, 
                             m.timestamp, 
                             u.username, 
@@ -24,10 +23,8 @@ class RecentMessages {
                             c.is_group, 
                             c.name as group_name,
                             c.id as chat_id,
-                            CASE 
-                                WHEN c.is_group = 1 THEN c.id
-                                ELSE (SELECT user_id FROM chat_members cm2 WHERE cm2.chat_id = c.id AND cm2.user_id != ? LIMIT 1)
-                            END as chat_identifier
+                            m.sender_id,
+                            c.id as chat_identifier
                          FROM messages m
                          JOIN users u ON m.sender_id = u.id
                          JOIN chats c ON m.chat_id = c.id
@@ -36,19 +33,21 @@ class RecentMessages {
                            AND m.sender_id != ?
                            AND m.timestamp > COALESCE(
                                (SELECT last_seen FROM chat_members cm3 
-                                WHERE cm3.chat_id = c.id AND cm3.user_id = ?), 
+                                WHERE cm3.chat_id = c.id AND cm3.user_id = ? LIMIT 1), 
                                '1970-01-01 00:00:00'
                            )
-                           AND m.id = (
+                           AND m.id IN (
                                SELECT MAX(m2.id) 
                                FROM messages m2 
-                               WHERE m2.chat_id = c.id 
+                               JOIN chat_members cm4 ON m2.chat_id = cm4.chat_id
+                               WHERE cm4.user_id = ?
                                  AND m2.sender_id != ?
                                  AND m2.timestamp > COALESCE(
-                                     (SELECT last_seen FROM chat_members cm4 
-                                      WHERE cm4.chat_id = c.id AND cm4.user_id = ?), 
+                                     (SELECT last_seen FROM chat_members cm5 
+                                      WHERE cm5.chat_id = m2.chat_id AND cm5.user_id = ? LIMIT 1), 
                                      '1970-01-01 00:00:00'
                                  )
+                               GROUP BY m2.chat_id
                            )
                          ORDER BY m.timestamp DESC
                          LIMIT 5";
@@ -66,6 +65,20 @@ class RecentMessages {
         $result_messages = $stmt->get_result();
         
         while ($row = $result_messages->fetch_assoc()) {
+            // Para chats individuais, buscar o ID do outro usuário separadamente
+            if (!$row['is_group']) {
+                $other_user_sql = "SELECT user_id FROM chat_members WHERE chat_id = ? AND user_id != ? LIMIT 1";
+                $other_user_stmt = $this->mysqli->prepare($other_user_sql);
+                $other_user_stmt->bind_param("ii", $row['chat_id'], $this->user_id);
+                $other_user_stmt->execute();
+                $other_user_result = $other_user_stmt->get_result();
+                
+                if ($other_user_row = $other_user_result->fetch_assoc()) {
+                    $row['chat_identifier'] = $other_user_row['user_id'];
+                }
+                $other_user_stmt->close();
+            }
+            
             $recent_messages[] = $row;
         }
         $stmt->close();
@@ -89,15 +102,14 @@ class RecentMessages {
     }
     
     /**
-     * Versão alternativa se não quisermos modificar a estrutura da tabela
-     * Usa uma abordagem baseada apenas em timestamp das mensagens
+     * Versão alternativa mais simples e confiável
      */
     public function getRecentMessagesSimple() {
         if (!$this->user_id) return [];
         
         $recent_messages = [];
         
-        // Busca a mensagem mais recente de cada chat, excluindo mensagens muito antigas (últimas 24h por exemplo)
+        // Busca mensagens recentes das últimas 24 horas, uma por chat
         $sql_messages = "SELECT 
                             m.content, 
                             m.timestamp, 
@@ -105,11 +117,7 @@ class RecentMessages {
                             u.name, 
                             c.is_group, 
                             c.name as group_name,
-                            c.id as chat_id,
-                            CASE 
-                                WHEN c.is_group = 1 THEN c.id
-                                ELSE (SELECT user_id FROM chat_members cm2 WHERE cm2.chat_id = c.id AND cm2.user_id != ? LIMIT 1)
-                            END as chat_identifier
+                            c.id as chat_id
                          FROM messages m
                          JOIN users u ON m.sender_id = u.id
                          JOIN chats c ON m.chat_id = c.id
@@ -128,11 +136,29 @@ class RecentMessages {
                          LIMIT 5";
         
         $stmt = $this->mysqli->prepare($sql_messages);
-        $stmt->bind_param("iiii", $this->user_id, $this->user_id, $this->user_id, $this->user_id);
+        $stmt->bind_param("iii", $this->user_id, $this->user_id, $this->user_id);
         $stmt->execute();
         $result_messages = $stmt->get_result();
         
         while ($row = $result_messages->fetch_assoc()) {
+            // Para chats individuais, buscar o ID do outro usuário
+            if (!$row['is_group']) {
+                $other_user_sql = "SELECT user_id FROM chat_members WHERE chat_id = ? AND user_id != ? LIMIT 1";
+                $other_user_stmt = $this->mysqli->prepare($other_user_sql);
+                $other_user_stmt->bind_param("ii", $row['chat_id'], $this->user_id);
+                $other_user_stmt->execute();
+                $other_user_result = $other_user_stmt->get_result();
+                
+                if ($other_user_row = $other_user_result->fetch_assoc()) {
+                    $row['chat_identifier'] = $other_user_row['user_id'];
+                } else {
+                    $row['chat_identifier'] = $row['chat_id'];
+                }
+                $other_user_stmt->close();
+            } else {
+                $row['chat_identifier'] = $row['chat_id'];
+            }
+            
             $recent_messages[] = $row;
         }
         $stmt->close();

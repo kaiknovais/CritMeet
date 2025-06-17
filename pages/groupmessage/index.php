@@ -109,49 +109,40 @@ $stmt_check->close();
 // Processar outras ações do grupo
 // Processar upload de imagem do grupo
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['group_image']) && ($user_role === 'admin' || $is_creator)) {
-    $upload_dir = '../../uploads/groups/';
+    $upload_dir = __DIR__ . '/../../uploads/groups/';
     
-    // Debug: Log para verificar se está entrando na condição
-    error_log("Tentando fazer upload de imagem do grupo. Group ID: " . $group_id);
-    error_log("User role: " . $user_role . ", Is creator: " . ($is_creator ? 'true' : 'false'));
-    
+    // Criar diretório se não existir
     if (!file_exists($upload_dir)) {
         mkdir($upload_dir, 0755, true);
     }
     
     $file = $_FILES['group_image'];
-    
-    // Debug: Verificar detalhes do arquivo
-    error_log("Arquivo recebido - Nome: " . $file['name'] . ", Tipo: " . $file['type'] . ", Tamanho: " . $file['size']);
-    
-    // Adicionar WebP aos tipos permitidos
     $allowed_types = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    $allowed_extensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
     
-    // Verificar se há erro no upload
+    // Verificar erros no upload
     if ($file['error'] !== UPLOAD_ERR_OK) {
-        error_log("Erro no upload: " . $file['error']);
-    } else if (in_array($file['type'], $allowed_types) && $file['size'] <= 5000000 && $file['size'] > 0) {
+        $_SESSION['upload_error'] = "Erro no upload: " . $file['error'];
+    } 
+    // Verificar tipo e tamanho do arquivo
+    else if (in_array($file['type'], $allowed_types) && $file['size'] <= 5000000 && $file['size'] > 0) {
         $file_extension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
         
-        // Verificar se a extensão está nos formatos permitidos
-        $allowed_extensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
         if (in_array($file_extension, $allowed_extensions)) {
             // Remover imagem anterior se existir
             if (!empty($group_image)) {
-                $old_image_path = $upload_dir . $group_image;
+                $old_image_path = $upload_dir . basename($group_image);
                 if (file_exists($old_image_path)) {
-                    unlink($old_image_path);
+                    @unlink($old_image_path);
                 }
             }
             
+            // Gerar nome único para o novo arquivo
             $new_filename = 'group_' . $group_id . '_' . time() . '.' . $file_extension;
             $upload_path = $upload_dir . $new_filename;
             
-            error_log("Tentando mover arquivo para: " . $upload_path);
-            
             if (move_uploaded_file($file['tmp_name'], $upload_path)) {
-                error_log("Arquivo movido com sucesso. Atualizando banco de dados...");
-                
+                // Atualizar no banco de dados
                 $sql_update_image = "UPDATE chats SET image = ? WHERE id = ?";
                 $stmt_update_image = $mysqli->prepare($sql_update_image);
                 
@@ -159,59 +150,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['group_image']) && ($
                     $stmt_update_image->bind_param("si", $new_filename, $group_id);
                     
                     if ($stmt_update_image->execute()) {
-                        $affected_rows = $stmt_update_image->affected_rows;
-                        error_log("Update executado. Linhas afetadas: " . $affected_rows);
-                        
-                        if ($affected_rows > 0) {
-                            // Atualizar a variável para refletir a mudança
-                            $group_image = $new_filename;
-                            error_log("Imagem atualizada com sucesso: " . $new_filename);
-                            
-                            // Definir uma mensagem de sucesso na sessão
-                            $_SESSION['upload_success'] = "Imagem do grupo atualizada com sucesso!";
-                        } else {
-                            error_log("Nenhuma linha foi afetada no update. Verificar se o group_id existe: " . $group_id);
-                            $_SESSION['upload_error'] = "Erro: Grupo não encontrado.";
-                        }
+                        // Atualizar a variável local e a sessão
+                        $group_image = $new_filename;
+                        $_SESSION['upload_success'] = "Imagem do grupo atualizada com sucesso!";
                     } else {
-                        error_log("Erro ao executar update: " . $stmt_update_image->error);
                         $_SESSION['upload_error'] = "Erro ao atualizar banco de dados: " . $stmt_update_image->error;
+                        @unlink($upload_path); // Remover arquivo se o BD falhar
                     }
                     $stmt_update_image->close();
                 } else {
-                    error_log("Erro ao preparar statement: " . $mysqli->error);
                     $_SESSION['upload_error'] = "Erro na preparação da consulta: " . $mysqli->error;
                 }
-                
-                // Redirecionar para evitar resubmissão do formulário
-                header("Location: " . $_SERVER['REQUEST_URI']);
-                exit();
             } else {
-                error_log("Falha ao mover o arquivo uploadado");
-                $_SESSION['upload_error'] = "Falha ao salvar o arquivo.";
+                $_SESSION['upload_error'] = "Falha ao mover o arquivo para o diretório de upload.";
             }
         } else {
-            error_log("Extensão não permitida: " . $file_extension);
-            $_SESSION['upload_error'] = "Formato de arquivo não permitido.";
+            $_SESSION['upload_error'] = "Extensão de arquivo não permitida.";
         }
     } else {
         if (!in_array($file['type'], $allowed_types)) {
-            error_log("Tipo MIME não permitido: " . $file['type']);
-            $_SESSION['upload_error'] = "Tipo de arquivo não permitido: " . $file['type'];
+            $_SESSION['upload_error'] = "Tipo de arquivo não permitido.";
         } else if ($file['size'] > 5000000) {
-            error_log("Arquivo muito grande: " . $file['size']);
-            $_SESSION['upload_error'] = "Arquivo muito grande. Máximo 5MB.";
-        } else if ($file['size'] <= 0) {
-            error_log("Arquivo vazio");
-            $_SESSION['upload_error'] = "Arquivo está vazio.";
+            $_SESSION['upload_error'] = "Arquivo muito grande. Tamanho máximo: 5MB.";
+        } else {
+            $_SESSION['upload_error'] = "Arquivo inválido ou vazio.";
         }
     }
     
-    // Redirecionar em caso de erro também
-    if (isset($_SESSION['upload_error'])) {
-        header("Location: " . $_SERVER['REQUEST_URI']);
-        exit();
-    }
+    // Redirecionar para evitar resubmissão
+    header("Location: " . $_SERVER['REQUEST_URI']);
+    exit();
 }
 
 // Obter informações dos membros do grupo
@@ -511,10 +479,11 @@ html, body {
 }
 
 .message.other {
-    background-color: #e9ecef;
+    background-color:rgb(165, 178, 196);
     color: #333;
     align-self: flex-start;
     border-bottom-left-radius: 5px;
+    border: 1px solid rgba(0, 123, 255, 0.1);
 }
 
 .message-avatar {
@@ -869,6 +838,16 @@ html, body {
     margin: 0 -15px -15px -15px;
     z-index: 1;
 }
+
+.message-avatar.clickable-avatar {
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+
+.message-avatar.clickable-avatar:hover {
+    transform: scale(1.1);
+    border-color: #007bff !important;
+}
     </style>
 </head>
 <body>
@@ -1132,6 +1111,13 @@ html, body {
     if (empty($image_data)) {
         return null;
     }
+    
+    // Verificar se já é um caminho completo ou relativo
+    if (strpos($image_data, 'http') === 0 || strpos($image_data, '/') === 0) {
+        return $image_data;
+    }
+    
+    // Retornar caminho relativo padrão
     return '../../uploads/groups/' . $image_data;
 }
         // Função para obter URL do avatar
@@ -1210,7 +1196,11 @@ function loadMessages() {
         const avatarUrl = getProfileImageUrl(message.avatar);
         
         if (avatarUrl) {
-            avatarHtml = `<img src="${avatarUrl}" alt="Avatar de ${message.username}" class="message-avatar" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+            avatarHtml = `<img src="${avatarUrl}" 
+                              alt="Avatar de ${message.username}" 
+                              class="message-avatar clickable-avatar" 
+                              data-user-id="${message.sender_id}"
+                              onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
                           <div class="message-avatar-default" style="display: none;">${message.username.charAt(0).toUpperCase()}</div>`;
         } else {
             const initial = message.username.charAt(0).toUpperCase();
@@ -1320,6 +1310,7 @@ function escapeHtml(text) {
         updateScrollIndicators();
     }, 500);
 });
+
 </script>
 </body>
 </html>
