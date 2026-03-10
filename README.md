@@ -40,6 +40,29 @@ O projeto nasceu da observação direta de uma dificuldade real dentro da comuni
 
 ---
 
+## Screenshots
+
+**Matchmaker — Encontrar Jogadores**  
+Descubra jogadores próximos com base em preferências de sistema, pronomes e distância. Curta ou recuse perfis para iniciar conexões.  
+
+<img src="assets/screenshots/matchmaker.png" width="700"/>
+
+---
+
+**Localização**  
+Defina sua localização para aparecer nas buscas e encontrar sessões presenciais na sua região.  
+
+<img src="assets/screenshots/localizacao.png" width="700"/>
+
+---
+
+**Chat**  
+Converse em tempo real em grupos ou diretamente com outros jogadores após a conexão.  
+
+<img src="assets/screenshots/chat.png" width="700"/>
+
+---
+
 ## Arquitetura
 
 A aplicação segue uma estrutura modular por páginas, onde cada funcionalidade possui seu próprio diretório contendo `index.php`, estilos CSS e scripts JavaScript. Elementos compartilhados como `header.php` e `footer.php` são reutilizados em todas as páginas.
